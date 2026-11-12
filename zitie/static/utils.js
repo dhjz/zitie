@@ -414,6 +414,7 @@
      297 - 上下页边距 - 标题栏 - 页脚，格子高度加起来别超过它。 */
   // A4 297 - 上下页边距 10+8 - 标题 13 - 页脚 8 = 258，留 2mm 给边框容差
   Z.BODY_H = 256;
+  Z.PEN_WIDTH = 184; // 控笔页可用宽度，左右各留 13mm 页边距
   Z.PY_H = 7.4; // 拼音行高度，跟 app.css 里的 .cell-py 对齐
 
   /* 一页能放几行、格子多高。
@@ -643,6 +644,78 @@
       pages: Z.paginate(cells, perPage).map((p) =>
         // 文章页补满整版：抄写纸的格子就该是满的
         p.concat(Array.from({ length: perPage - p.length }, () => blank))),
+    };
+  };
+
+  /* ---------------- 控笔练习 ----------------
+     PenControl 字体里就是 32 个线条图形，字符表固定：
+     123456789ABCDEFGHIJKLMNOPQRSTUVW（没有 0、X、Y、Z）。
+     每个图形天生一个「格子」的尺寸，直接当文字画 —— 打印出来是矢量，
+     比拿一串 SVG path 拼省事，也随格子缩放。 */
+  Z.PEN_CHARS = '123456789ABCDEFGHIJKLMNOPQRSTUVW';
+  Z.PEN_PATTERNS = [
+    { ch: '1', name: '横线' }, { ch: '2', name: '竖线' },
+    { ch: '3', name: '横向折线' }, { ch: '4', name: '纵向折线' },
+    { ch: '5', name: '螺旋' }, { ch: '6', name: '反向螺旋' },
+    { ch: '7', name: '方格网' }, { ch: '8', name: '斜格网' },
+    { ch: '9', name: '直角' }, { ch: 'A', name: '反向直角' },
+    { ch: 'B', name: '竖虚线' }, { ch: 'C', name: '横虚线' },
+    { ch: 'D', name: '回形框' }, { ch: 'E', name: '反向回形' },
+    { ch: 'F', name: '阶梯' }, { ch: 'G', name: '反向阶梯' },
+    { ch: 'H', name: '山峰折线' }, { ch: 'I', name: 'V 形折线' },
+    { ch: 'J', name: '横向波浪' }, { ch: 'K', name: '竖向波浪' },
+    { ch: 'L', name: '左上斜线' }, { ch: 'M', name: '右上斜线' },
+    { ch: 'N', name: '连笔圈' }, { ch: 'O', name: '竖圈' },
+    { ch: 'P', name: '弧线' }, { ch: 'Q', name: '斜折线' },
+    { ch: 'R', name: '弧形' }, { ch: 'S', name: '圆圈' },
+    { ch: 'T', name: '断线直角' }, { ch: 'U', name: '五角星' },
+    { ch: 'V', name: '双圆' }, { ch: 'W', name: '桃心' },
+  ];
+  Z.PEN_TRACE_COLORS = [
+    { name: '淡蓝', value: 'rgb(150, 180, 215)' },
+    { name: '浅灰', value: 'rgb(168, 178, 192)' },
+    { name: '淡红', value: 'rgb(226, 160, 160)' },
+    { name: '淡绿', value: 'rgb(150, 190, 165)' },
+    { name: '深灰', value: 'rgb(110, 122, 140)' },
+  ];
+
+  /* 控笔练习
+     一个图形练几行（lines），每行前 trace 格描红、其余留给自己写；
+     一组练完再补 blank_row 行整行空白。选中的图形按顺序往下排。
+     格子多大用 size 定，一页放几格由它反算 —— 换一档边长，版面跟着变。 */
+  Z.genPen = (form) => {
+    const picks = String(form.picks || '').split('').filter((c) => Z.PEN_CHARS.indexOf(c) >= 0);
+    if (!picks.length) return null;
+    const size = Z.clamp(form.size || 10, 5, 40);
+    const gap = Z.clamp(form.gap || 0, 0, 10);
+    const cols = Math.max(3, Math.floor((Z.PEN_WIDTH + gap) / (size + gap)));
+    const rows = Math.max(2, Math.floor((Z.BODY_H + gap) / (size + gap)));
+    const perPage = cols * rows;
+    const trace = Z.clamp(form.trace || 0, 0, cols);
+    const lines = Z.clamp(form.lines || 1, 1, 12);
+    const blankRow = Z.clamp(form.blank_row || 0, 0, 12);
+    const blank = () => ({ ch: '', head: false });
+
+    const blocks = [];
+    for (const ch of picks) {
+      for (let r = 0; r < lines; r++) {
+        const row = [];
+        // 每行第一格印深色，当示范；后面的描红格浅一点，描完自己写
+        for (let c = 0; c < cols; c++) row.push({ ch: c < trace ? ch : '', head: c === 0 });
+        blocks.push(row);
+      }
+      for (let r = 0; r < blankRow; r++) blocks.push(Array.from({ length: cols }, blank));
+    }
+
+    return {
+      doc: {
+        kind: 'pen', title: form.title, cols, cellH: size,
+        rowGap: gap, colGap: gap,
+        line: form.border_color, ink: form.trace_color,
+        // 列宽就是格子边长，间距交给 gap；ZSheet 按 gridWidth/cols 取列宽
+        gridWidth: cols * size,
+      },
+      pages: Z.paginateBlocks(blocks, perPage, blank),
     };
   };
 

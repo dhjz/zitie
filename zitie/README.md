@@ -13,7 +13,7 @@ static/
   index.js        入口：路由、主题、装配
   page.*.js       各功能页（自注册进 window.myComponents）
   data/           笔顺数据与拼音引擎
-  fonts/          楷体、仿宋、隶书、行楷、庞中华、硬笔、手写英文
+  fonts/          楷体、仿宋、隶书、行楷、庞中华、硬笔、手写英文、控笔线条
 ```
 
 ## 加一个页面
@@ -35,5 +35,21 @@ static/
 
 - `data/strokes.js`：6763 个 GB2312 字的笔画路径，base36 增量编码。只建「字 → 偏移」索引，用到才解码（100 字约 1ms）。
 - `data/pinyin-pro.js`：pinyin-pro UMD，词组级多音字判断。
+
+## 控笔练习
+
+`static/fonts/pen/PenControl.woff2`（4.3KB）是一个图标字体，码位对应 32 个线条图形：
+`123456789ABCDEFGHIJKLMNOPQRSTUVW`（没有 `0`、`X`、`Y`、`Z`）。
+
+这些图形天生就是「一个格子」的尺寸，所以不做 SVG，直接把字符当文字画：
+`static/page.pen.js` 出表单，`Zu.genPen()` 排版，`<z-cell-pen>` 渲染。
+换格子大小就是改 `font-size`，打印出来仍然是矢量的。
+
+一个坑：字体的线条是「细长矩形」，横线只有 0.9% em 高，12mm 的格子算下来不到 0.02mm，
+屏幕上直接消失、纸上也会被打印机吃掉。所以 `.cell-pen` 加了 `-webkit-text-stroke: .07mm`，
+落在纸面上大约一根细线的粗，正好适合描。
+
+每行第一格印深色当示范，同一行前面几格是浅色描红（描红格数可调），剩下的空格自己写；
+一个图形练几行、每组后面补几行空白都能设。列数由格子边长反算，换一档边长版面就跟着变。
 
 笔顺数据遵循 Arphic Public License，拼音引擎 MIT。

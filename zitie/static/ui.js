@@ -184,6 +184,28 @@
       </div>`,
   };
 
+  // 控笔格：把 PenControl 字体里的线条图形当文字画，撑满整格
+  G.ZCellPen = {
+    name: 'ZCellPen',
+    props: {
+      cell: { type: Object, required: true }, ink: String,
+      cellH: { type: Number, default: 10 },
+    },
+    setup(props) {
+      // 字形的 em 框就是格子的边长，字号直接跟格子对齐；
+      // 留 2% 余量，免得描线压在边框上
+      const style = computed(() => ({
+        width: props.cellH + 'mm',
+        height: props.cellH + 'mm',
+        fontSize: props.cellH * 0.98 + 'mm',
+        color: props.cell.head ? '#262c36' : props.ink,
+      }));
+      return { style };
+    },
+    template: `
+      <div class="cell-pen" :style="style"><span v-if="cell.ch">{{ cell.ch }}</span></div>`,
+  };
+
   /* ---------------- A4 纸张 ---------------- */
 
   G.ZSheet = {
@@ -202,11 +224,14 @@
       const gridStyle = computed(() => {
         const total = props.doc.gridWidth || 180;
         const w = Math.round((total / cols.value) * 1000) / 1000;
+        const colGap = props.doc.colGap || 0;
         return {
           gridTemplateColumns: `repeat(${cols.value}, ${w}mm)`,
-          width: `${w * cols.value}mm`,
+          // 有列间距时总宽要把它算进去，否则居中会偏
+          width: `${w * cols.value + colGap * (cols.value - 1)}mm`,
           color: props.doc.line,
           rowGap: (props.doc.rowGap || 0) + 'mm',
+          columnGap: colGap + 'mm',
         };
       });
       const fontCss = computed(() => props.doc.fontCss || '');
@@ -225,6 +250,11 @@
           <div v-else-if="doc.kind === 'en'" class="grid-en" :style="[gridStyle, { '--cell-line': doc.line }]">
             <z-cell-en v-for="(c, i) in cells" :key="i" :cell="c" :ink="doc.ink" :font-css="fontCss"
               :cell-h="doc.cellH || 9" :font-size="doc.fontSize || 15"></z-cell-en>
+          </div>
+          <div v-else-if="doc.kind === 'pen'" class="grid-pen" :class="{ gapped: doc.rowGap > 0 || doc.colGap > 0 }"
+            :style="[gridStyle, { '--cell-line': doc.line }]">
+            <z-cell-pen v-for="(c, i) in cells" :key="i" :cell="c" :ink="doc.ink"
+              :cell-h="doc.cellH || 10"></z-cell-pen>
           </div>
           <div v-else-if="doc.kind === 'math'" class="math-wrap">
             <div v-for="(it, i) in items" :key="i" class="math-item" :class="{ half: it.half }">

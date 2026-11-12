@@ -15,6 +15,7 @@
     { name: 'eletter', title: '英文字帖' },
     { name: 'math', title: '数学练习' },
     { name: 'stage', title: '词语文章' },
+    { name: 'pen', title: '控笔练习' },
     { name: 'blank', title: '空白练习纸' },
   ];
   const NAMES = ROUTES.map((r) => r.name).concat(['guide']);
