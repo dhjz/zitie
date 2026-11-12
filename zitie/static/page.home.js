@@ -35,11 +35,17 @@
           </div>
         </section>
 
-        <div class="cards">
-          <button v-for="f in features" :key="f.name" class="tile" @click="$emit('go', f.name)">
-            <div class="tile-ico">{{ f.ico }}</div>
-            <h4>{{ f.title }}</h4>
-            <p>{{ f.desc }}</p>
+        <div class="cards feat">
+          <button v-for="f in features" :key="f.name" class="tile feat" @click="$emit('go', f.name)">
+            <z-thumb :kind="f.name"></z-thumb>
+            <div class="tile-body">
+              <div class="tile-hd">
+                <span class="tile-ico">{{ f.ico }}</span>
+                <h4>{{ f.title }}</h4>
+                <span class="tile-go">→</span>
+              </div>
+              <p>{{ f.desc }}</p>
+            </div>
           </button>
         </div>
       </div>`,
