@@ -7,6 +7,7 @@
   const DEFAULTS = {
     title: '拼音练习本',
     type: 1,
+    font_key: 'pinyinok',
     content: '春眠不觉晓',
     repeat_times: 6,
     blank_row: 1,
@@ -35,7 +36,8 @@
       const charCount = Vue.computed(() => Z.chars(form.content).length);
 
       return { ...gen, form, doc, pages, items, generate, print,
-        typeOptions, charCount, borderColors: Z.BORDER_COLORS, inkColors: Z.INK_COLORS };
+        typeOptions, charCount, fonts: Z.PY_FONTS,
+        borderColors: Z.BORDER_COLORS, inkColors: Z.INK_COLORS };
     },
     template: `
       <div class="split">
@@ -48,6 +50,10 @@
               <z-field v-if="Number(form.type) === 4" label="汉字" tip="每个字一个音节，铺成一行一行描">
                 <textarea class="input" v-model="form.content" rows="3" placeholder="输入汉字，自动注音"></textarea>
                 <div class="hint">{{ charCount }} 字</div>
+              </z-field>
+
+              <z-field label="字体">
+                <z-fonts v-model="form.font_key" :fonts="fonts" sample="b p m f"></z-fonts>
               </z-field>
 
               <z-field label="重复" tip="同一行铺几遍，铺满自动换行">

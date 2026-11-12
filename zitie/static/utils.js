@@ -389,9 +389,15 @@
   ];
   Z.EN_FONTS = [
     { key: 'shouxieti', name: '手写体', url: 'static/fonts/en/shouxieti.woff2', eager: true },
+    { key: 'enitali', name: 'Italic 斜体', url: 'static/fonts/en/EnItalic.woff2' },
     { key: 'segoeprint', name: 'Segoe Print', url: 'static/fonts/en/SegoePrint.woff2' },
     { key: 'blokletterspotlood', name: 'Blokletters', url: 'static/fonts/en/BloklettersPotlood.woff2' },
     { key: 'myriadpro', name: 'Myriad Pro', url: 'static/fonts/en/MyriadProLightSemiExtIt.woff2' },
+  ];
+  /* 拼音字体只带小写字母和带调元音，几 KB，索性都预加载 */
+  Z.PY_FONTS = [
+    { key: 'pinyinok', name: '拼音体', url: 'static/fonts/pinyin/pinyinok.woff2', eager: true },
+    { key: 'pinyin', name: '拼音黑体', url: 'static/fonts/pinyin/Pinyin.woff2', eager: true },
   ];
 
   /* 中文字体都是 1MB 起，6 个全下就是 11MB。首屏只留一个楷体，
@@ -399,7 +405,7 @@
   const fontLoaded = new Map();
   Z.ensureFont = (key) => {
     if (fontLoaded.has(key)) return fontLoaded.get(key);
-    const meta = Z.ZH_FONTS.concat(Z.EN_FONTS).find((f) => f.key === key);
+    const meta = Z.ZH_FONTS.concat(Z.EN_FONTS, Z.PY_FONTS).find((f) => f.key === key);
     if (!meta || !window.FontFace) return Promise.resolve();
     const done = new FontFace(key, `url(${meta.url})`, { display: 'swap' })
       .load()
@@ -534,7 +540,7 @@
       doc: {
         kind: 'en', title: form.title, cols, cellH, pinyin: false,
         guide: 'en', line: form.border_color, ink: form.font_color,
-        fontCss: 'pinyinok', fontSize: 20, gridWidth: 176,
+        fontCss: form.font_key || 'pinyinok', fontSize: 20, gridWidth: 176,
       },
       pages: Z.paginateBlocks(blocks, perPage, () => ({ word: '', head: false, py: true })),
     };

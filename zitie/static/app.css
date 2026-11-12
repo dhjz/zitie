@@ -119,7 +119,7 @@ a { color: inherit; text-decoration: none; }
 /* ---------------- 布局 ---------------- */
 .wrap { max-width: 1440px; margin: 0 auto; padding: 22px 20px 80px; }
 .split { display: grid; grid-template-columns: 372px minmax(0, 1fr); gap: 22px; align-items: start; }
-@media (max-width: 1080px) { .split { grid-template-columns: 1fr; } }
+@media screen and (max-width: 1080px) { .split { grid-template-columns: 1fr; } }
 
 .card {
   background: var(--surface);
@@ -139,7 +139,7 @@ a { color: inherit; text-decoration: none; }
 .side { position: sticky; top: 82px; max-height: calc(100vh - 100px); overflow-y: auto; padding-right: 4px; }
 .side::-webkit-scrollbar { width: 8px; }
 .side::-webkit-scrollbar-thumb { background: var(--line); border-radius: 8px; }
-@media (max-width: 1080px) { .side { position: static; max-height: none; } }
+@media screen and (max-width: 1080px) { .side { position: static; max-height: none; } }
 
 /* ---------------- 控件 ---------------- */
 .field { display: grid; grid-template-columns: 66px minmax(0, 1fr); gap: 10px; align-items: start; }
@@ -255,6 +255,42 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.9; letter-sp
 .tile h4 { margin: 0 0 6px; font-size: 15px; }
 .tile p { margin: 0; font-size: 12.5px; color: var(--text-3); }
 
+/* ---- 首页功能卡：比说明页的卡片大一档，顶上带一张缩略图 ---- */
+.cards.feat { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
+.tile.feat {
+  padding: 0; overflow: hidden; display: flex; flex-direction: column;
+}
+.tile.feat:hover { transform: translateY(-4px); border-color: color-mix(in srgb, var(--accent) 34%, var(--line)); }
+.tile.feat .tile-body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 6px; }
+.tile.feat .tile-hd { display: flex; align-items: center; gap: 10px; }
+.tile.feat .tile-ico {
+  width: 32px; height: 32px; border-radius: 11px; margin: 0; flex: 0 0 auto; font-size: 16px;
+}
+.tile.feat h4 { margin: 0; font-size: 16px; letter-spacing: .2px; }
+.tile.feat p { font-size: 13px; line-height: 1.65; }
+.tile-go { margin-left: auto; color: var(--text-3); font-size: 15px; transition: transform .2s, color .2s; }
+.tile.feat:hover .tile-go { color: var(--accent); transform: translateX(3px); }
+
+/* ---- 卡片上的缩略图：一张按真实比例画的迷你字帖 ----
+   纸画到画布外面一点，底部被裁掉 —— 暗示「底下还有一整页」。 */
+.thumb {
+  height: 200px; overflow: hidden; padding: 0;
+  background:
+    radial-gradient(120% 130% at 18% 0%, color-mix(in srgb, var(--accent) 12%, var(--surface-2)) 0%, var(--surface-2) 62%);
+  border-bottom: 1px solid var(--line-soft);
+}
+.thumb svg { display: block; width: 100%; height: 100%; }
+/* 暗色下纸本身还是纸，但别把屏幕照得刺眼 */
+html.dark .thumb svg { filter: brightness(.93); }
+.th-title { font-size: 9px; font-weight: 600; fill: #2b3340; letter-spacing: .6px; }
+.th-glyph { font-family: kaiti, serif; font-size: 22px; }
+.th-glyph.en { font-family: pinyinok, serif; font-size: 18px; }
+.th-glyph.en.small { font-size: 13px; }
+.th-glyph.small { font-size: 12px; }
+.th-glyph.head { fill: #2b3340; }
+.th-glyph.trace { fill: #eaa6a6; }
+.th-math { font-size: 11px; fill: #55606f; letter-spacing: .5px; }
+
 /* ---------------- A4 预览 ---------------- */
 .preview { padding: 0; }
 .preview-hd {
@@ -314,7 +350,9 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.9; letter-sp
 .cell-guide { position: absolute; inset: 0; pointer-events: none; }
 /* 田字格：十字虚线；米字格再加对角线；回宫格加内框。
    对角线用 background 的 linear-gradient 画，比旋转伪元素稳 —— 
-   旋转的元素宽度是盒子对角线以外的长度，45° 一转就短一截。 */
+   旋转的元素宽度是盒子对角线以外的长度，45° 一转就短一截。
+   伪元素一律先写 content:''，否则不生成盒子，格子里的十字线全不见。 */
+.cell-guide::before, .cell-guide::after { content: ''; position: absolute; }
 .cell-guide.tian::before { left: 50%; top: 0; bottom: 0; border-left: 1px dashed color-mix(in srgb, currentColor 55%, #fff); }
 .cell-guide.tian::after { top: 50%; left: 0; right: 0; border-top: 1px dashed color-mix(in srgb, currentColor 55%, #fff); }
 .cell-guide.mi { background-image:
@@ -400,6 +438,8 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.9; letter-sp
   .sheet { zoom: .46; }
   .preview-body { padding: 14px 6px 24px; }
   .field { grid-template-columns: 60px minmax(0, 1fr); }
+  .cards.feat { grid-template-columns: 1fr; gap: 14px; }
+  .thumb { height: 172px; }
 }
 
 /* ---------------- 轻提示 ---------------- */

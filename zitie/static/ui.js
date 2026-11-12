@@ -151,6 +151,177 @@
       </span>`,
   };
 
+  /* ---------------- 首页缩略图 ----------------
+     功能卡上那张小样：按真实字帖的比例画一张迷你 A4 版面。
+     用 SVG 而不是 DOM 拼格子 —— viewBox 一缩放就自适应卡片宽度，
+     格子保持正方形、格线不会糊。字形走字体文字，不拉笔顺分片，
+     首页不该为了几张缩略图多下几百 KB。 */
+  const THUMB_W = 320;
+  const THUMB_H = 200;
+
+  // 一张纸的版面参数：格子多大、几列、有没有拼音行
+  const LAYOUTS = {
+    cn: { cell: 44, cols: 6, top: 38 },
+    en: { cellW: 44, cellH: 30, cols: 6, top: 40 },
+    math: { rowH: 34, cols: 2, top: 38 },
+  };
+
+  // 缩略图内容：paper 里的 rows 每格 { t: 字/词, s: 'head'|'trace'|'' }
+  const THUMBS = {
+    hanzi: {
+      kind: 'cn', guide: 'tian', title: '字帖练习本',
+      rows: [
+        ['永', '永', '永', '永', '永', ''],
+        ['永', '永', '永', '', '', ''],
+        ['', '', '', '', '', ''],
+        ['和', '和', '和', '和', '和', ''],
+        ['和', '和', '和', '', '', ''],
+        ['', '', '', '', '', ''],
+      ],
+    },
+    stage: {
+      kind: 'cn', guide: 'tian', title: '课文抄写',
+      rows: [
+        ['春', '眠', '不', '觉', '晓', ''],
+        ['处', '处', '闻', '啼', '鸟', ''],
+        ['', '', '', '', '', ''],
+        ['夜', '来', '风', '雨', '声', ''],
+        ['花', '落', '知', '多', '少', ''],
+        ['', '', '', '', '', ''],
+      ],
+    },
+    blank: {
+      kind: 'cn', guide: 'mi', title: '练习纸', plain: true,
+      rows: [
+        ['', '', '', '', '', ''], ['', '', '', '', '', ''], ['', '', '', '', '', ''],
+        ['', '', '', '', '', ''], ['', '', '', '', '', ''], ['', '', '', '', '', ''],
+      ],
+    },
+    pinyin: {
+      kind: 'en', guide: 'en', title: '拼音练习本', font: 'pinyinok',
+      rows: [
+        ['b', 'p', 'm', 'f', 'd', 't'],
+        ['b', 'p', 'm', 'f', 'd', 't'],
+        ['', '', '', '', '', ''],
+        ['n', 'l', 'g', 'k', 'h', 'j'],
+        ['n', 'l', 'g', 'k', 'h', 'j'],
+        ['', '', '', '', '', ''],
+      ],
+    },
+    eletter: {
+      kind: 'en', guide: 'en', title: 'English Practice', font: 'shouxieti',
+      rows: [
+        ['Aa', 'Bb', 'Cc', 'Dd', 'Ee', 'Ff'],
+        ['', '', '', '', '', ''],
+        ['apple', '', '', '', '', ''],
+        ['', '', '', '', '', ''],
+        ['Gg', 'Hh', 'Ii', 'Jj', 'Kk', 'Ll'],
+        ['', '', '', '', '', ''],
+        ['banana', '', '', '', '', ''],
+      ],
+    },
+    math: {
+      kind: 'math', title: '口算练习',
+      rows: [
+        ['3 + 5 =', '9 - 4 ='], ['6 × 2 =', '8 ÷ 4 ='], ['12 + 7 =', '20 - 8 ='],
+        ['35 - 9 =', '7 × 3 ='], ['48 ÷ 6 =', '16 + 25 ='], ['23 + 9 =', '54 - 8 ='],
+      ],
+    },
+  };
+
+  G.ZThumb = {
+    name: 'ZThumb',
+    props: { kind: { type: String, default: 'hanzi' } },
+    setup(props) {
+      const conf = computed(() => THUMBS[props.kind] || THUMBS.hanzi);
+
+      // 把 rows 摊成定位好的格子列表，模板只管遍历
+      const cells = computed(() => {
+        const c = conf.value;
+        const L = LAYOUTS[c.kind];
+        const out = [];
+        (c.rows || []).forEach((row, r) => {
+          row.forEach((t, i) => {
+            // 首格深色示范，其余淡红描红 —— 跟真字帖的档位一致
+            const ink = !t ? '' : i === 0 ? 'head' : 'trace';
+            if (c.kind === 'cn') {
+              out.push({ x: 24 + i * L.cell, y: L.top + r * L.cell, w: L.cell, h: L.cell, t, ink, guide: c.guide });
+            } else if (c.kind === 'en') {
+              out.push({ x: 24 + i * L.cellW, y: L.top + r * L.cellH, w: L.cellW, h: L.cellH, t, ink, guide: c.guide, small: t.length > 2 });
+            }
+          });
+        });
+        // 数学题单独一类：一行两列，右边留横线当答案位
+        if (c.kind === 'math') {
+          out.length = 0;
+          const colW = (THUMB_W - 48) / 2;
+          (c.rows || []).forEach((row, r) => {
+            row.forEach((t, i) => {
+              out.push({ x: 24 + i * colW, y: L.top + r * L.rowH, w: colW, h: L.rowH, t });
+            });
+          });
+        }
+        return out;
+      });
+
+      const box = computed(() => {
+        const c = conf.value;
+        const L = LAYOUTS[c.kind];
+        if (c.kind === 'cn') return { w: THUMB_W, h: THUMB_H, cols: L.cols, cell: L.cell, top: L.top };
+        if (c.kind === 'en') return { w: THUMB_W, h: THUMB_H, cols: L.cols, cellW: L.cellW, cellH: L.cellH, top: L.top };
+        return { w: THUMB_W, h: THUMB_H };
+      });
+
+      return { conf, cells, box, W: THUMB_W, H: THUMB_H };
+    },
+    template: `
+      <div class="thumb">
+        <!-- 卡片上已经有标题文字，图对读屏来说是重复的 -->
+        <svg :viewBox="'0 0 ' + W + ' ' + H" preserveAspectRatio="xMidYMin slice"
+          xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <!-- id 带上 kind：同一页上有六张图，id 不能撞 -->
+            <filter :id="'thumb-shadow-' + kind" x="-20%" y="-10%" width="140%" height="130%">
+              <feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#101828" flood-opacity="0.14" />
+            </filter>
+          </defs>
+
+          <!-- 纸：故意画到画布外面，底部被裁掉，暗示「还有一整页」 -->
+          <rect x="12" y="8" width="296" height="330" rx="6" fill="#fff" :filter="'url(#thumb-shadow-' + kind + ')'" />
+
+          <!-- 标题 -->
+          <text :x="W / 2" y="24" text-anchor="middle" class="th-title">{{ conf.title }}</text>
+          <line :x1="W / 2 - 46" :x2="W / 2 + 46" y1="29" y2="29" stroke="#2b3340" stroke-width="1.4" opacity=".75" />
+
+          <!-- 格子 -->
+          <g v-for="(c, i) in cells" :key="i">
+            <template v-if="conf.kind === 'math'">
+              <text :x="c.x + 4" :y="c.y + c.h * 0.66" class="th-math">{{ c.t }}</text>
+              <line :x1="c.x + 8 + c.t.length * 6.4" :x2="c.x + c.w - 16" :y1="c.y + c.h * 0.72" :y2="c.y + c.h * 0.72"
+                stroke="#c9d4e2" stroke-width="1" />
+            </template>
+            <template v-else>
+              <rect :x="c.x" :y="c.y" :width="c.w" :height="c.h" fill="none" stroke="#cbd7e4" stroke-width="1" />
+              <template v-if="c.guide === 'tian' || c.guide === 'mi'">
+                <line :x1="c.x + c.w / 2" :x2="c.x + c.w / 2" :y1="c.y" :y2="c.y + c.h" stroke="#dee7f0" stroke-width="1" stroke-dasharray="3 3" />
+                <line :x1="c.x" :x2="c.x + c.w" :y1="c.y + c.h / 2" :y2="c.y + c.h / 2" stroke="#dee7f0" stroke-width="1" stroke-dasharray="3 3" />
+              </template>
+              <template v-if="c.guide === 'mi'">
+                <line :x1="c.x" :y1="c.y" :x2="c.x + c.w" :y2="c.y + c.h" stroke="#eaf1f8" stroke-width="1" />
+                <line :x1="c.x + c.w" :y1="c.y" :x2="c.x" :y2="c.y + c.h" stroke="#eaf1f8" stroke-width="1" />
+              </template>
+              <template v-if="c.guide === 'en'">
+                <line :x1="c.x" :x2="c.x + c.w" :y1="c.y + c.h * 0.28" :y2="c.y + c.h * 0.28" stroke="#d9e4ef" stroke-width="1" stroke-dasharray="3 3" />
+                <line :x1="c.x" :x2="c.x + c.w" :y1="c.y + c.h * 0.72" :y2="c.y + c.h * 0.72" stroke="#d9e4ef" stroke-width="1" stroke-dasharray="3 3" />
+              </template>
+              <text v-if="c.t" :x="c.x + c.w / 2" :y="c.y + c.h / 2" text-anchor="middle" dominant-baseline="central"
+                class="th-glyph" :class="[conf.kind, c.ink, { small: c.small }]" :style="conf.font ? { fontFamily: conf.font } : null">{{ c.t }}</text>
+            </template>
+          </g>
+        </svg>
+      </div>`,
+  };
+
   /* ---------------- 单元格 ---------------- */
 
   // 汉字格：可选拼音行 + 田/米/回宫格线

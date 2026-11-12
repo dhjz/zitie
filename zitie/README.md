@@ -13,7 +13,7 @@ static/
   index.js        入口：路由、主题、装配
   page.*.js       各功能页（自注册进 window.myComponents）
   data/           笔顺数据与拼音引擎
-  fonts/          楷体、仿宋、隶书、行楷、庞中华、硬笔、手写英文、控笔线条
+  fonts/          中文六款、英文五款、拼音两款、控笔线条一套
 ```
 
 ## 加一个页面
@@ -24,6 +24,10 @@ static/
 4. `static/index.js` 的 `ROUTES` 加一项，模板里加 `<xxx-page v-else-if="route === 'xxx'">`
 
 `index.js` 本身不用改 —— 组件是自注册的。
+
+首页那张缩略图同理：`ui.js` 里的 `THUMBS` 加一份该页的小样数据
+（几行几列、哪些字描红），`page.home.js` 的 `features` 里加一张卡就成。
+缩略图是 SVG 按真实字帖比例画的，不拉笔顺分片。
 
 ## 三个约定
 
