@@ -20,7 +20,7 @@
       </div>`,
   };
 
-  // 分段选择器
+  // 分段选择器。选项可以带 disabled，点不动的那种（笔顺只对楷体有效）
   G.ZSeg = {
     name: 'ZSeg',
     props: { modelValue: [String, Number, Boolean], options: { type: Array, default: () => [] } },
@@ -28,7 +28,8 @@
     template: `
       <div class="seg">
         <button v-for="o in options" :key="String(o.v)" type="button"
-          :class="{ on: o.v === modelValue }" :title="o.tip || ''"
+          :class="{ on: o.v === modelValue, off: o.disabled }" :title="o.tip || ''"
+          :disabled="!!o.disabled"
           @click="$emit('update:modelValue', o.v)">{{ o.label }}</button>
       </div>`,
   };
@@ -114,35 +115,58 @@
 
   /* ---------------- 字形 ---------------- */
 
-  // 一个汉字：有笔顺数据就画 SVG 轮廓，没有就退回字体文字
+  /* 一个汉字，两条渲染路径：
+       mode='stroke' 笔画轮廓 —— 只有这条路能逐笔拆解，笔顺帖用；
+       mode='text'   字体整字 —— 描字帖、词语文章用，选哪款中文字体就是哪款。
+     两条路都走 SVG（text 元素打印出来也是矢量），所以版面尺寸算法一致。
+     字体的墨迹大小和基线由 Zu.fontMetric 量出来，各款字体都刚好压在格子里。 */
   G.ZGlyph = {
     name: 'ZGlyph',
     props: {
       ch: { type: String, default: '' },
       ink: { type: String, default: '#111' },
       upTo: { type: [Number, null], default: null }, // 只画前 N 笔
+      mode: { type: String, default: 'stroke' },     // stroke 笔画轮廓 / text 字体整字
       fontCss: { type: String, default: '' },
       pad: { type: Number, default: 64 },            // 内缩，字不顶格才像字帖
     },
     setup(props) {
       const paths = computed(() => {
+        // 字体整字那条路根本不画轮廓 —— 别顺手把几百 KB 的笔顺分片拉下来
+        if (props.mode !== 'stroke' || !props.ch) return [];
         // 分片按需加载：strokeRev 变一次就重算一次，缺字的地方随后自己补上
         Z.strokeRev.n;
-        if (!props.ch) return [];
         const all = Z.strokeFor(props.ch);
         return props.upTo == null ? all : all.slice(0, props.upTo);
       });
-      // 笔形数据本身是 0..1024 满幅的，往外撑一点 viewBox 当留白
+      // 笔形数据本身是 0..1024 满幅的，往外撑一点 viewBox 当留白。
+      // 字体整字不用留 —— 字号已经按墨迹缩到格子的 88%，再留白就瘦一圈。
       const box = computed(() => {
-        const p = props.pad;
+        const p = props.mode === 'text' ? 0 : props.pad;
         return `${-p} ${-p} ${1024 + p * 2} ${1024 + p * 2}`;
       });
-      return { paths, box };
+      // 字体度量是异步量出来的（字体文件先加载），量完 metricRev 变一次就重排
+      const face = computed(() => {
+        Z.metricRev.n;
+        const key = props.fontCss || 'kaiti';
+        const m = Z.fontMetric(key);
+        // 字体里没有的字（生僻字）交给系统楷体，别掉到 serif 的宋体上去
+        return {
+          family: `${key}, 'KaiTi', 'STKaiti', serif`,
+          size: 1024 * m.scale,
+          y: 1024 * m.baseline,
+        };
+      });
+      return { paths, box, face };
     },
     // 数据坐标系是 y 轴向上的 1024 方格，翻一下才是字形
     template: `
-      <span class="glyph">
-        <svg v-if="paths.length" :viewBox="box" xmlns="http://www.w3.org/2000/svg">
+      <span class="glyph" :class="mode">
+        <svg v-if="mode === 'text' && ch" :viewBox="box" xmlns="http://www.w3.org/2000/svg">
+          <text x="512" :y="face.y" :font-size="face.size" :font-family="face.family"
+            text-anchor="middle" :fill="ink">{{ ch }}</text>
+        </svg>
+        <svg v-else-if="paths.length" :viewBox="box" xmlns="http://www.w3.org/2000/svg">
           <g transform="scale(1,-1) translate(0,-900)">
             <path v-for="(d, i) in paths" :key="i" :d="d" :fill="ink" />
           </g>
@@ -329,6 +353,7 @@
     name: 'ZCellCn',
     props: {
       cell: { type: Object, required: true }, pinyin: Boolean, guide: String, ink: String,
+      mode: { type: String, default: 'text' }, fontCss: String,
       cellH: { type: Number, default: 15 }, pyH: { type: Number, default: 7.4 },
     },
     template: `
@@ -336,7 +361,8 @@
         <div v-if="pinyin" class="cell-py" :style="{ height: pyH + 'mm' }"><span>{{ cell.py || '' }}</span></div>
         <div class="cell-ch" :style="{ minHeight: cellH + 'mm' }">
           <i class="cell-guide" :class="guide"></i>
-          <z-glyph v-if="cell.ch" :ch="cell.ch" :ink="cell.head ? '#262c36' : ink" :up-to="cell.upTo" />
+          <z-glyph v-if="cell.ch" :ch="cell.ch" :ink="cell.head ? '#262c36' : ink"
+            :mode="mode" :up-to="cell.upTo" :font-css="fontCss" />
         </div>
       </div>`,
   };
@@ -416,7 +442,8 @@
         <div class="sheet-bd">
           <div v-if="doc.kind === 'cn'" class="grid-cn" :style="[gridStyle, { '--cell-line': doc.line }]">
             <z-cell-cn v-for="(c, i) in cells" :key="i" :cell="c" :pinyin="doc.pinyin"
-              :guide="doc.guide || 'tian'" :ink="doc.ink" :cell-h="doc.cellH || 15" :py-h="doc.pyH || 7.4"></z-cell-cn>
+              :guide="doc.guide || 'tian'" :ink="doc.ink" :mode="doc.render || 'text'"
+              :font-css="fontCss" :cell-h="doc.cellH || 15" :py-h="doc.pyH || 7.4"></z-cell-cn>
           </div>
           <div v-else-if="doc.kind === 'en'" class="grid-en" :style="[gridStyle, { '--cell-line': doc.line }]">
             <z-cell-en v-for="(c, i) in cells" :key="i" :cell="c" :ink="doc.ink" :font-css="fontCss"
@@ -517,7 +544,8 @@
   /* ---------------- 生成器页面的公共骨架 ----------------
      六个字帖页面的差异只有「表单长什么样」和「怎么排版」，
      状态管理、生成、打印、本地记忆这套全在这里，页面只管填参数。 */
-  G.useGen = (key, defaults, build, validate) => {
+  G.useGen = (key, defaults, build, validate, opts) => {
+    const needStrokes = (opts && opts.strokes) || (() => true);
     const { ref, reactive, computed, watch } = Vue;
     // 上次用过的参数记在本地，下次进来还是那套（比 zivip 每次重选省事）
     const saved = Z.load(key, {});
@@ -532,7 +560,8 @@
       const err = validate && validate(form);
       if (err) { Z.toast(err, 'warn'); return; }
       const my = ++seq;
-      await Z.prefetch(form.content || '');
+      // 只有真的要画笔画轮廓时才去拉分片；字体整字那条路不需要
+      if (needStrokes(form)) await Z.prefetch(form.content || '');
       if (my !== seq) return; // 期间又改了参数，这次结果作废
       const out = build(form);
       if (!out) { Z.toast('内容为空，先填点东西', 'warn'); doc.value = null; pages.value = []; items.value = []; return; }
