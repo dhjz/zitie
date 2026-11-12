@@ -184,6 +184,70 @@
     return paths;
   };
 
+  /* ---------------- 字体墨迹度量 ----------------
+     几种中文字体的 em 框里，墨迹大小差得很远：隶书的字只占 em 高的 65%，
+     仿宋能到 98%，行楷还往下探出 20%。字号直接取格子边长，同一个版面里
+     就会出现「有的字顶天立地、有的瘦一圈」，回宫格/米字格上尤其明显。
+     所以拿 canvas 量一批常用字的墨迹包络，反算字号缩放和基线位置，
+     再用 <text> 按算出来的基线画 —— 六款字体出来的字一样大、一样居中。 */
+  const PROBE = '永和九年岁在癸丑春眠不觉晓处闻啼鸟天地人你我他大小中国文字';
+  const METRIC_DEFAULT = { scale: 0.88, baseline: 0.84 }; // 量出来之前的近似值
+  const metrics = new Map();
+
+  /* 量一款字体：字号 1000 排一遍常用字，取墨迹包络的 95 分位。
+     用 canvas 的 measureText 而不是 SVG getBBox —— 后者在 Chrome 里
+     返回的是 em 框（永远是 1000×1000），量不出某款字体实际画得多满。 */
+  async function measureFont(key) {
+    let ctx;
+    try { ctx = document.createElement('canvas').getContext('2d'); } catch { return null; }
+    if (!ctx) return null;
+    // FontFace 是动态注入的，不显式 load 一次，量到的是回退字体
+    try { await document.fonts.load(`1000px ${key}`); } catch {}
+    const SIZE = 1000;
+    ctx.font = `${SIZE}px ${key}, serif`;
+    const hs = [], ws = [], mids = [];
+    for (const ch of PROBE) {
+      const t = ctx.measureText(ch);
+      const asc = t.actualBoundingBoxAscent || 0;
+      const desc = t.actualBoundingBoxDescent || 0;
+      if (!asc && !desc) continue;
+      hs.push(asc + desc);
+      ws.push((t.actualBoundingBoxLeft || 0) + (t.actualBoundingBoxRight || 0));
+      mids.push((asc - desc) / 2); // 墨迹中心相对基线往上多少
+    }
+    if (!hs.length) return null;
+    const pick = (arr, q) => {
+      const v = arr.slice().sort((a, b) => a - b);
+      return v[Math.min(v.length - 1, Math.floor(q * v.length))];
+    };
+    // 取 95 分位而不是最大值：个别字（「永」「春」）会挑出去，
+    // 按最大值缩，其余九成的字就都小了一号。
+    const h = pick(hs, 0.95), w = pick(ws, 0.95), mid = pick(mids, 0.5);
+    // 目标：墨迹占格子的 88%。字帖的字得留呼吸空间，顶格满铺不好看，
+    // 而且描字时要给笔尖留位置。
+    const scale = Math.min((0.88 * SIZE) / h, (0.88 * SIZE) / w);
+    // 出字时 viewBox 是 0..1024、字号取 1024 × scale；
+    // 基线放在 0.5 + 墨迹中心处，墨迹中心就正好压在格子正中
+    const baseline = 0.5 + (mid / SIZE) * scale;
+    return {
+      scale: Math.round(scale * 1000) / 1000,
+      baseline: Math.round(baseline * 1000) / 1000,
+    };
+  }
+
+  // 量好一次就缓存；字体是异步注入的，先给个近似值顶着，
+  // 量完 bump 一下版本号，字形那边自己重排。
+  Z.metricRev = Vue.reactive({ n: 0 });
+  Z.fontMetric = (key) => {
+    if (!key) return METRIC_DEFAULT;
+    if (metrics.has(key)) return metrics.get(key);
+    metrics.set(key, METRIC_DEFAULT); // 占位，免得同一款字体被反复触发测量
+    Z.ensureFont(key)
+      .then(() => measureFont(key))
+      .then((m) => { if (m) { metrics.set(key, m); Z.metricRev.n++; } });
+    return METRIC_DEFAULT;
+  };
+
   /* ---------------- 拼音 ---------------- */
   // pinyin-pro：多音字按词组判，「长大了」不会读成 cháng
   const PY = () => window.pinyinPro;
@@ -446,8 +510,11 @@
   }
 
   /* 汉字字帖
-     mode: 'trace' 描字 / 'stroke' 笔顺
-     每个字：头格（深色示范）+ 描字行 + 空白行，补齐整行 */
+     font_type: 1 描字 / 2 笔顺
+     每个字：头格（深色示范）+ 描字行 + 空白行，补齐整行
+
+     render 决定字形怎么画：描字用 text（字体整字，选哪款就是哪款），
+     笔顺用 stroke（笔画轮廓，只有它能逐笔拆）。 */
   Z.genHanzi = (form) => {
     const chars = Z.chars(form.content);
     if (!chars.length) return null;
@@ -491,6 +558,7 @@
         kind: 'cn', title: form.title, cols, cellH, pinyin, pyH: Z.PY_H,
         guide: form.guide || 'tian', line: form.border_color, ink: form.font_color,
         fontCss: form.font_key || 'kaiti',
+        render: Number(form.font_type) === 2 ? 'stroke' : 'text',
         gridWidth: 180,
       },
       pages: Z.paginateBlocks(blocks, perPage, () => cellCh('', '')),
@@ -645,6 +713,7 @@
         kind: 'cn', title: form.title, cols, cellH, pinyin, pyH: Z.PY_H,
         guide: form.guide || 'tian', line: form.border_color, ink: form.font_color,
         fontCss: form.font_key || 'kaiti',
+        render: 'text', // 整段文字只走字体，逐笔拆一整篇课文没有意义
         gridWidth: 180,
       },
       pages: Z.paginate(cells, perPage).map((p) =>
@@ -756,7 +825,7 @@
     const { cellH, perPage } = grid;
     const page = Array.from({ length: perPage }, () => ({ ch: '', py: '', head: false }));
     return {
-      doc: { kind: 'cn', title: form.title, cols, cellH, pinyin, pyH: Z.PY_H, guide, line: form.border_color, ink: form.font_color, fontCss: 'kaiti', gridWidth: 180 },
+      doc: { kind: 'cn', title: form.title, cols, cellH, pinyin, pyH: Z.PY_H, guide, line: form.border_color, ink: form.font_color, fontCss: 'kaiti', render: 'text', gridWidth: 180 },
       pages: Array.from({ length: num }, () => page),
     };
   };

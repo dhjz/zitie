@@ -9,7 +9,7 @@
     title: '字帖练习本',
     content: '永和九年岁在癸丑',
     font_key: 'kaiti',
-    font_type: 2,       // 1 描字 2 笔顺
+    font_type: 1,       // 1 描字 2 笔顺
     pinyin: 1,
     guide: 'tian',      // tian / mi / hui
     fill_row: 1,        // 每个字几行描字格
@@ -26,7 +26,8 @@
   G.HanziPage = {
     name: 'HanziPage',
     setup() {
-      const gen = G.useGen('hanzi', DEFAULTS, Z.genHanzi, validate);
+      // 只有笔顺帖要逐笔拆，得先等笔画数据到位；描字帖走字体，不用等
+      const gen = G.useGen('hanzi', DEFAULTS, Z.genHanzi, validate, { strokes: (f) => Number(f.font_type) === 2 });
       const { form, doc, pages, items, generate, print, pageCount } = gen;
 
       const fontOptions = Z.ZH_FONTS;
@@ -42,7 +43,8 @@
       });
       const charCount = Vue.computed(() => Z.chars(form.content).length);
 
-      // 笔顺只对楷体有意义（其它字体的字形跟笔顺数据不配套）
+      // 笔顺模式画的是笔画轮廓数据，跟选哪款字体无关；换了非楷体就退回描字，
+      // 免得用户以为字体没生效
       const strokeDisabled = Vue.computed(() => form.font_key !== 'kaiti');
       Vue.watch(strokeDisabled, (v) => { if (v && form.font_type === 2) form.font_type = 1; });
 
@@ -64,10 +66,11 @@
                 <div class="hint" v-if="dropped">有 {{ dropped }} 个非汉字字符不会出现在字帖里</div>
               </z-field>
 
-              <z-field label="格式">
+              <z-field label="格式" tip="描字按上面选的字体整字渲染；笔顺是逐笔拆开的笔画轮廓，跟字体无关">
                 <z-seg v-model="form.font_type" :options="[
                   { v: 1, label: '描字' },
-                  { v: 2, label: '笔顺', tip: strokeDisabled ? '笔顺只支持楷体' : '逐笔演示笔顺' }
+                  { v: 2, label: '笔顺', disabled: strokeDisabled,
+                    tip: strokeDisabled ? '笔顺是逐笔拆开的笔画轮廓，只能用楷体的笔画数据；描字才跟着字体走' : '逐笔演示笔顺' }
                 ]"></z-seg>
               </z-field>
 

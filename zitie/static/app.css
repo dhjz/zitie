@@ -157,6 +157,9 @@ a { color: inherit; text-decoration: none; }
   background: var(--surface); color: var(--accent); font-weight: 600;
   box-shadow: var(--shadow-sm);
 }
+/* 用不了的那个档位：压暗成禁用态，别让人点了没反应还猜原因 */
+.seg button.off { opacity: .38; cursor: not-allowed; }
+.seg button.off:hover { color: var(--text-2); }
 html.dark .seg button.on { background: var(--accent-soft); }
 
 .chip-list { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -372,7 +375,10 @@ html.dark .thumb svg { filter: brightness(.93); }
 .cell-guide.hui::before { left: 50%; top: 0; bottom: 0; border-left: 1px dashed color-mix(in srgb, currentColor 40%, #fff); }
 .cell-guide.hui::after { top: 50%; left: 0; right: 0; border-top: 1px dashed color-mix(in srgb, currentColor 40%, #fff); }
 
+/* 笔画轮廓的 viewBox 已经自带留白，容器再内缩 1.1mm 让它不顶格；
+   字体整字不用缩 —— 字号是按墨迹量到格子的 94% 算的，再内缩就瘦一圈。 */
 .glyph { position: absolute; inset: 1.1mm; display: grid; place-items: center; }
+.glyph.text { inset: 0; }
 .glyph svg { width: 100%; height: 100%; display: block; }
 .glyph-text { font-size: 11mm; line-height: 1; }
 
