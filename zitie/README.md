@@ -13,7 +13,7 @@ static/
   index.js        入口：路由、主题、装配
   page.*.js       各功能页（自注册进 window.myComponents）
   data/           笔顺数据与拼音引擎
-  fonts/          楷体、仿宋、隶书、行楷、庞中华、硬笔、手写英文
+  fonts/          中文六款 + 英文五款 + 拼音两款
 ```
 
 ## 加一个页面
