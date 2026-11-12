@@ -686,42 +686,51 @@
   ];
 
   /* 控笔练习
-     一个图形练几行（lines），每行前 trace 格描红、其余留给自己写；
-     一组练完再补 blank_row 行整行空白。选中的图形按顺序往下排。
-     格子多大用 size 定，一页放几格由它反算 —— 换一档边长，版面跟着变。 */
+     输入框里一个图形字符就是一整行，回车空一行（那行留给孩子自己画）。
+     每行默认整行铺满；把「描红格数」调小，才有「前面印线、后面自己写」。
+     格子边长只是基准：列数行数都按可用版面反算，再把格子撑满整页 ——
+     否则右边会剩下半列空地，纸上看着像没印完。 */
   Z.genPen = (form) => {
-    const picks = String(form.picks || '').split('').filter((c) => Z.PEN_CHARS.indexOf(c) >= 0);
-    if (!picks.length) return null;
+    // 一行一个图形，空行就是空白行；一行写几个图形就是几行。
+    // 顺手把小写转成大写 —— 手敲 a-w 的人不少，字体里只有大写码位
+    const rowsIn = [];
+    for (const line of String(form.content || '').toUpperCase().split('\n')) {
+      const chars = line.split('').filter((c) => Z.PEN_CHARS.indexOf(c) >= 0);
+      if (chars.length) rowsIn.push(...chars); else rowsIn.push('');
+    }
+    // 末尾那个换行不该白占一行
+    while (rowsIn.length > 1 && rowsIn[rowsIn.length - 1] === '') rowsIn.pop();
+    if (!rowsIn.some((c) => c)) return null;
+
     const size = Z.clamp(form.size || 10, 5, 40);
     const gap = Z.clamp(form.gap || 0, 0, 10);
-    const cols = Math.max(3, Math.floor((Z.PEN_WIDTH + gap) / (size + gap)));
-    const rows = Math.max(2, Math.floor((Z.BODY_H + gap) / (size + gap)));
+    const cols = Math.max(1, Math.round((Z.PEN_WIDTH + gap) / (size + gap)));
+    // 列宽是「铺满后摊下来」的结果，再拿它去算行数，格子才接近正方
+    const colW = (Z.PEN_WIDTH - gap * (cols - 1)) / cols;
+    const rows = Math.max(1, Math.round(Z.BODY_H / (colW + gap)));
+    // 格子的边框走 box-sizing: border-box，已经在高度里了，
+    // 所以只要把行间距扣掉再平摊，底部就不会留一条白边
+    const cellH = Math.round(((Z.BODY_H - gap * (rows - 1)) / rows) * 100) / 100;
     const perPage = cols * rows;
-    const trace = Z.clamp(form.trace || 0, 0, cols);
-    const lines = Z.clamp(form.lines || 1, 1, 12);
-    const blankRow = Z.clamp(form.blank_row || 0, 0, 12);
-    const blank = () => ({ ch: '', head: false });
+    // 0 = 整行铺满（默认）；其它值是每行前面几格印线，后面留白
+    const trace = Z.clamp(form.trace, 0, cols) || cols;
+    const blank = { ch: '' };
 
-    const blocks = [];
-    for (const ch of picks) {
-      for (let r = 0; r < lines; r++) {
-        const row = [];
-        // 每行第一格印深色，当示范；后面的描红格浅一点，描完自己写
-        for (let c = 0; c < cols; c++) row.push({ ch: c < trace ? ch : '', head: c === 0 });
-        blocks.push(row);
-      }
-      for (let r = 0; r < blankRow; r++) blocks.push(Array.from({ length: cols }, blank));
-    }
+    const blocks = rowsIn.map((ch) => {
+      const row = [];
+      for (let c = 0; c < cols; c++) row.push({ ch: ch && c < trace ? ch : '' });
+      return row;
+    });
 
     return {
       doc: {
-        kind: 'pen', title: form.title, cols, cellH: size,
+        kind: 'pen', title: form.title, cols, cellH,
+        cellW: Math.round(colW * 100) / 100,
         rowGap: gap, colGap: gap,
         line: form.border_color, ink: form.trace_color,
-        // 列宽就是格子边长，间距交给 gap；ZSheet 按 gridWidth/cols 取列宽
-        gridWidth: cols * size,
+        gridWidth: Z.PEN_WIDTH - gap * (cols - 1),
       },
-      pages: Z.paginateBlocks(blocks, perPage, blank),
+      pages: Z.paginateBlocks(blocks, perPage, () => ({ ch: '' })),
     };
   };
 

@@ -111,6 +111,7 @@ zitie/
     ├── page.eletter.js      # 英文字帖（字母表 / 单词）
     ├── page.math.js         # 数学练习（口算）
     ├── page.stage.js        # 词语文章
+    ├── page.pen.js          # 控笔练习（textarea + 图形插入）
     ├── page.blank.js        # 空白练习纸
     ├── page.guide.js        # 打印说明
     ├── data/

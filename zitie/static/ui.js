@@ -361,16 +361,20 @@
     props: {
       cell: { type: Object, required: true }, ink: String,
       cellH: { type: Number, default: 10 },
+      cellW: { type: Number, default: 10 },
     },
     setup(props) {
-      // 字形的 em 框就是格子的边长，字号直接跟格子对齐；
-      // 留 2% 余量，免得描线压在边框上
-      const style = computed(() => ({
-        width: props.cellH + 'mm',
-        height: props.cellH + 'mm',
-        fontSize: props.cellH * 0.98 + 'mm',
-        color: props.cell.head ? '#262c36' : props.ink,
-      }));
+      // 宽度交给栅格（列宽由版面摊出来），这里只管高度和字号。
+      // 字形的 em 框就是格子的边长，字号取长宽里小的那个，留 2% 余量，
+      // 免得描线压在边框上。
+      const style = computed(() => {
+        const side = Math.min(props.cellH, props.cellW || props.cellH);
+        return {
+          height: props.cellH + 'mm',
+          fontSize: side * 0.98 + 'mm',
+          color: props.ink,
+        };
+      });
       return { style };
     },
     template: `
@@ -425,7 +429,7 @@
           <div v-else-if="doc.kind === 'pen'" class="grid-pen" :class="{ gapped: doc.rowGap > 0 || doc.colGap > 0 }"
             :style="[gridStyle, { '--cell-line': doc.line }]">
             <z-cell-pen v-for="(c, i) in cells" :key="i" :cell="c" :ink="doc.ink"
-              :cell-h="doc.cellH || 10"></z-cell-pen>
+              :cell-h="doc.cellH || 10" :cell-w="doc.cellW || doc.cellH || 10"></z-cell-pen>
           </div>
           <div v-else-if="doc.kind === 'math'" class="math-wrap">
             <div v-for="(it, i) in items" :key="i" class="math-item" :class="{ half: it.half }">
