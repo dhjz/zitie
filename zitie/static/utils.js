@@ -453,7 +453,6 @@
   ];
   Z.EN_FONTS = [
     { key: 'shouxieti', name: '手写体', url: 'static/fonts/en/shouxieti.woff2', eager: true },
-    { key: 'enitali', name: 'Italic 斜体', url: 'static/fonts/en/EnItalic.woff2' },
     { key: 'segoeprint', name: 'Segoe Print', url: 'static/fonts/en/SegoePrint.woff2' },
     { key: 'blokletterspotlood', name: 'Blokletters', url: 'static/fonts/en/BloklettersPotlood.woff2' },
     { key: 'myriadpro', name: 'Myriad Pro', url: 'static/fonts/en/MyriadProLightSemiExtIt.woff2' },
@@ -463,6 +462,82 @@
     { key: 'pinyinok', name: '拼音体', url: 'static/fonts/pinyin/pinyinok.woff2', eager: true },
     { key: 'pinyin', name: '拼音黑体', url: 'static/fonts/pinyin/Pinyin.woff2', eager: true },
   ];
+
+  /* 六款英文/拼音字体的字形度量，千分之一 em，从 woff2 里逐字量出来的：
+     asc 升部顶（大写、b d f h k l 的上沿，拼音字体连声调符号一起算）、
+     xh 小写 x 的高度、desc 降部底（g j p q y）。
+     adv 是逐字宽度，字符顺序见 EN_CHARS / PY_CHARS，用来算一个词放不放得下。
+     pinyinok 的 v 画成了 ü 的放大版（0.95 em 高），是那套字体自己的毛病，
+     量 asc 时把它剔掉，不然整页字号被一个字压掉一截。
+     有这几个数，字号就能从「笔画正好撑满格子」反算，不用一款字体手调一个 px。 */
+  Z.EN_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-';
+  Z.PY_CHARS = 'abcdefghijklmnopqrstuvwxyzāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜń';
+  Z.GLYPH_METRICS = {
+    shouxieti: { chars: 'en', name: '手写体', asc: 721, xh: 366, desc: 363,
+      adv: '488,391,439,488,439,488,488,488,342,391,439,439,684,537,439,391,439,391,439,537,439,488,781,586,' +
+        '488,537,342,342,293,391,244,293,342,391,195,244,391,195,488,342,244,342,342,342,293,244,391,342,' +
+        '488,439,391,342,488,488,488,488,488,488,488,488,488,488,439' },
+    segoeprint: { chars: 'en', name: 'Segoe Print', asc: 859, xh: 546, desc: 340,
+      adv: '777,734,699,794,684,593,776,806,317,596,744,629,946,808,804,707,809,729,639,672,775,717,1013,733,' +
+        '671,766,587,582,507,661,520,373,574,626,289,322,591,286,1028,663,565,646,573,509,424,469,610,546,' +
+        '881,539,591,502,0,0,0,0,0,0,0,0,0,0,641' },
+    blokletterspotlood: { chars: 'en', name: 'Blokletters', asc: 945, xh: 613, desc: 378,
+      adv: '661,694,761,812,771,749,976,723,621,761,754,634,890,749,857,737,888,769,764,800,808,700,1043,758,' +
+        '721,735,643,606,601,658,622,469,620,535,225,346,548,241,894,622,607,659,590,544,561,542,561,514,' +
+        '796,529,587,563,0,0,0,0,0,0,0,0,0,0,573' },
+    myriadpro: { chars: 'en', name: 'Myriad Pro', asc: 728, xh: 480, desc: 224,
+      adv: '578,516,604,698,481,480,655,664,223,376,508,450,818,674,721,516,721,527,477,480,659,525,865,530,' +
+        '515,560,553,553,463,553,460,275,553,567,223,208,444,223,873,567,553,553,553,308,374,318,553,456,' +
+        '746,440,437,430,0,0,0,0,0,0,0,0,0,0,300' },
+    pinyinok: { chars: 'py', name: '拼音体', asc: 762, xh: 465, desc: 219,
+      adv: '539,539,477,539,527,324,539,520,227,246,496,227,789,520,531,539,539,352,473,348,520,664,715,461,' +
+        '488,441,516,516,516,516,527,527,527,527,309,266,309,227,531,531,531,531,520,520,520,520,520,520,' +
+        '520,520,523' },
+    pinyin: { chars: 'py', name: '拼音黑体', asc: 883, xh: 540, desc: 288,
+      adv: '544,544,468,530,510,327,530,500,269,270,463,265,742,512,560,560,615,379,463,369,510,511,791,486,' +
+        '512,468,545,543,543,545,509,509,509,509,269,269,269,269,560,560,560,560,508,510,510,510,512,510,' +
+        '510,512,510' },
+  };
+  /* 一个词占多宽，单位 em。度量表里没有的字（生僻音节、符号）按 0.6em 估。 */
+  Z.textEm = (text, fontKey) => {
+    const m = Z.GLYPH_METRICS[fontKey] || Z.GLYPH_METRICS.shouxieti;
+    const chars = m.chars === 'py' ? Z.PY_CHARS : Z.EN_CHARS;
+    const advs = m.adv.split(',').map(Number);
+    let em = 0;
+    for (const ch of String(text || '')) {
+      const i = chars.indexOf(ch);
+      em += i >= 0 && advs[i] ? advs[i] / 1000 : 0.6;
+    }
+    return em;
+  };
+
+  /* 四线三格怎么摆、字写多大，全交给字体自己的度量算，不再一款字体拍一个 px。
+
+     每款字体量三个数：asc 升部顶（大写、b d f h l 的上沿，拼音字体连声调一起算）、
+     xh 小写 x 的高度、desc 降部底（g j p q y）。然后：
+
+     - 字号让「升部顶贴格顶、降部底贴格底」：size = (格高 - 0.3mm) / (asc + desc)。
+       有降部的字（apple、grape、quick）正好把整格撑满。以前给的是 17/20/22 这种死值，
+       手写体的 x 高度只有 em 的 0.37，17px 折算下字母才 2.5mm ——
+       8.6mm 的格子里浮着窄窄一行，就是「没填满」的观感来源
+     - 上面那条内线画在 x 高度处、下面那条画在基线处，两条位置都由度量算。
+       小写字母正好卡在两条线之间，四线三格的读法还在，
+       而且不管字体高矮胖瘦，线都跟着自己的字形走
+
+     各款字体 x 高度差近一倍（手写体 0.37、Blokletters 0.61），套同一套公式，
+     四款英文、两款拼音在纸上看起来一样满。 */
+  Z.enLayout = (fontKey, cellW, cellH) => {
+    const m = Z.GLYPH_METRICS[fontKey] || Z.GLYPH_METRICS.shouxieti;
+    const span = (m.asc + m.desc) / 1000;
+    // 留 0.3mm：字顶到格线上，1px 的边框会压掉一牙
+    const size = (cellH - 0.3) / span;
+    return {
+      size: Math.floor(size * 100) / 100,
+      cellW, cellH,
+      mid: (m.asc - m.xh) / (m.asc + m.desc),  // 上边线 = x 高度线
+      base: m.asc / (m.asc + m.desc),          // 下边线 = 基线
+    };
+  };
 
   /* 中文字体都是 1MB 起，6 个全下就是 11MB。首屏只留一个楷体，
      其余等用户真的选中（或把鼠标停到字体按钮上）再拉。 */
@@ -604,11 +679,14 @@
       }
     }
 
+    const fontCss = form.font_key || 'pinyinok';
+    const gridWidth = 176;
     return {
       doc: {
         kind: 'en', title: form.title, cols, cellH, pinyin: false,
         guide: 'en', line: form.border_color, ink: form.font_color,
-        fontCss: form.font_key || 'pinyinok', fontSize: 20, gridWidth: 176,
+        fontCss, gridWidth,
+        glyph: Z.enLayout(fontCss, gridWidth / cols, cellH),
       },
       pages: Z.paginateBlocks(blocks, perPage, () => ({ word: '', head: false, py: true })),
     };
@@ -646,11 +724,14 @@
       }
     }
 
+    const gridWidth = 176;
     return {
       doc: {
         kind: 'en', title: form.title, cols, cellH, pinyin: false,
         guide: 'en', line: form.border_color, ink: form.font_color,
-        fontCss, fontSize: 17, gridWidth: 176,
+        fontCss, gridWidth,
+        // 字号与两条内线由字体度量算（见 Z.enLayout），一页就一个字号
+        glyph: Z.enLayout(fontCss, gridWidth / cols, cellH),
       },
       pages: Z.paginateBlocks(blocks, perPage, () => ({ word: '', head: false })),
     };
@@ -814,7 +895,12 @@
       const { cellH, perPage } = grid;
       const page = Array.from({ length: perPage }, () => ({ word: '', head: false }));
       return {
-        doc: { kind: 'en', title: form.title, cols, cellH, pinyin: false, guide: 'en', line: form.border_color, ink: form.font_color, fontCss: 'shouxieti', fontSize: 15, gridWidth: 176 },
+        doc: {
+          kind: 'en', title: form.title, cols, cellH, pinyin: false, guide: 'en',
+          line: form.border_color, ink: form.font_color, fontCss: 'shouxieti', gridWidth: 176,
+          // 空白纸虽然不写字，四条线也照同一个公式摆，写上去跟真字帖对得上
+          glyph: Z.enLayout('shouxieti', 176 / cols, cellH),
+        },
         pages: Array.from({ length: num }, () => page),
       };
     }
