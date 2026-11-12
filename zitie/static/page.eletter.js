@@ -1,0 +1,73 @@
+/* 英文字帖：字母表 / 单词
+   四线三格用虚线画，字体自带手写感，不依赖系统装了什么。 */
+(function () {
+  const G = (window.myComponents = window.myComponents || {});
+  const Z = window.Zu;
+
+  const DEFAULTS = {
+    title: 'English Practice',
+    type: 'alphabet',
+    content: 'apple banana orange',
+    font_key: 'shouxieti',
+    repeat_times: 10,
+    blank_row: 1,
+    border_color: 'rgb(56, 152, 219)',
+    font_color: 'rgb(255, 120, 120)',
+  };
+
+  const validate = (f) => {
+    if (f.type !== 'word') return '';
+    if (!String(f.content || '').trim()) return '先输入单词，用空格或竖线隔开';
+    if (/[^\sa-zA-Z\-|,，]/.test(String(f.content))) return '只能输入英文单词';
+    return '';
+  };
+
+  G.LetterPage = {
+    name: 'LetterPage',
+    setup() {
+      const gen = G.useGen('eletter', DEFAULTS, Z.genEnglish, validate);
+      const { form, doc, pages, items, generate, print } = gen;
+      const typeOptions = [{ v: 'alphabet', label: '字母表' }, { v: 'word', label: '单词' }];
+      const wordCount = Vue.computed(() =>
+        (String(form.content || '').trim() ? String(form.content).split(/[\s,，|]+/).filter(Boolean).length : 0));
+      return { ...gen, form, doc, pages, items, generate, print,
+        typeOptions, wordCount, fonts: Z.EN_FONTS, borderColors: Z.BORDER_COLORS, inkColors: Z.INK_COLORS };
+    },
+    template: `
+      <div class="split">
+        <aside class="side no-print">
+          <div class="card">
+            <div class="card-hd"><h3>英文字帖</h3></div>
+            <div class="card-bd">
+              <z-field label="类型"><z-seg v-model="form.type" :options="typeOptions"></z-seg></z-field>
+
+              <z-field v-if="form.type === 'word'" label="单词" tip="空格或竖线分隔">
+                <textarea class="input" v-model="form.content" rows="3" placeholder="apple banana orange"></textarea>
+                <div class="hint">{{ wordCount }} 个词</div>
+              </z-field>
+
+              <z-field label="字体">
+                <z-fonts v-model="form.font_key" :fonts="fonts" sample="Aa Bb"></z-fonts>
+              </z-field>
+
+              <z-field label="重复"><z-num v-model="form.repeat_times" :min="1" :max="20" suffix="格"></z-num></z-field>
+              <z-field label="空行"><z-num v-model="form.blank_row" :min="0" :max="5" suffix="行空白"></z-num></z-field>
+            </div>
+
+            <div class="card-bd">
+              <z-field label="格线色"><z-colors v-model="form.border_color" :palette="borderColors"></z-colors></z-field>
+              <z-field label="字色"><z-colors v-model="form.font_color" :palette="inkColors"></z-colors></z-field>
+              <z-field label="标题"><input class="input" v-model="form.title" maxlength="30" /></z-field>
+            </div>
+
+            <div class="card-bd">
+              <button class="btn btn-primary btn-block" @click="generate">生成字帖</button>
+            </div>
+          </div>
+        </aside>
+
+        <z-preview :doc="doc" :pages="pages" :items="items" @print="print" @regen="generate"
+          empty-text="选类型，点生成"></z-preview>
+      </div>`,
+  };
+})();
