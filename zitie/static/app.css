@@ -66,6 +66,8 @@ a { color: inherit; text-decoration: none; }
 @font-face { font-family: pinyinok; src: url('./fonts/pinyin/pinyinok.woff2') format('woff2'); font-display: swap; }
 @font-face { font-family: kaiti; src: url('./fonts/zh/kaiti.woff2') format('woff2'); font-display: swap; }
 @font-face { font-family: shouxieti; src: url('./fonts/en/shouxieti.woff2') format('woff2'); font-display: swap; }
+/* 控笔线条：32 个图形的图标字体，4324 字节，没有理由按需加载 */
+@font-face { font-family: pencontrol; src: url('./fonts/pen/PenControl.woff2') format('woff2'); font-display: block; }
 
 /* ---------------- 顶栏 ---------------- */
 .topbar {
@@ -199,6 +201,24 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.9; letter-sp
 
 .hint { font-size: 12px; color: var(--text-3); line-height: 1.6; }
 .row-between { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+/* 控笔图形选择器：按钮里直接是字体画的线条 */
+.pen-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 6px; width: 100%; }
+.pen-pick {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 6px 2px 4px; border-radius: 10px; background: var(--surface-2);
+  border: 1px solid var(--line-soft); color: var(--text-2);
+  transition: border-color .16s, background .16s, transform .16s, color .16s;
+}
+.pen-pick:hover { border-color: var(--line); transform: translateY(-1px); }
+.pen-pick.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.pen-pick-g {
+  font-family: pencontrol; font-size: 24px; line-height: 1;
+  color: var(--text-2);
+  -webkit-text-stroke: 0.06mm currentColor; /* 线条本身太细，屏幕上会消失 */
+}
+.pen-pick.on .pen-pick-g { color: var(--accent); }
+.pen-pick-n { font-size: 10.5px; transform: scale(.94); white-space: nowrap; }
 
 /* ---------------- 首页 ---------------- */
 .hero {
@@ -355,6 +375,31 @@ html.dark .thumb svg { filter: brightness(.93); }
 .cell-en .rule.a { top: 30%; } .cell-en .rule.b { top: 70%; }
 .cell-en .word { position: absolute; inset: 0; display: grid; place-items: center; font-size: 22px; line-height: 1; white-space: nowrap; }
 
+/* 控笔练习：格子里就是字体字形，不需要田字格线。
+   格线跟田字格一样画：外框由容器出上/左边，格子出下/右边，
+   相邻两格共用一条线，不会叠成双倍粗。有行间距时改成每格四边都有框。 */
+.grid-pen {
+  display: grid;
+  border-top: 1px solid var(--cell-line, #3898db);
+  border-left: 1px solid var(--cell-line, #3898db);
+}
+.grid-pen.gapped { border-top: 0; border-left: 0; }
+.cell-pen {
+  /* 边框走格线色，字形颜色由行内 color 决定 —— 两者不能共用一个 currentColor，
+     否则描红色的格子连框都跟着变红 */
+  position: relative;
+  border-right: 1px solid var(--cell-line);
+  border-bottom: 1px solid var(--cell-line);
+  display: grid; place-items: center; overflow: hidden; background: #fff;
+  font-family: pencontrol; line-height: 1;
+  /* 这个字体的线条是「细长矩形」，横线只有 0.9% em 高，
+     12mm 的格子算下来不到 0.02mm —— 屏幕上直接消失，纸上也会被打印机吃掉。
+     补 0.07mm 描边，落在纸面上约一根细线粗，正好适合描。 */
+  -webkit-text-stroke: 0.07mm currentColor;
+}
+.grid-pen.gapped .cell-pen { border-left: 1px solid var(--cell-line); border-top: 1px solid var(--cell-line); }
+.cell-pen span { display: block; }
+
 /* 数学题 */
 .math-wrap { display: flex; flex-wrap: wrap; width: 100%; padding: 0 2mm; }
 .math-item {
@@ -380,12 +425,12 @@ html.dark .thumb svg { filter: brightness(.93); }
     margin: 0; page-break-after: always; break-after: page; overflow: hidden;
   }
   .sheet:last-child { page-break-after: auto; break-after: auto; }
-  .cell-cn, .cell-en, .glyph, .math-item { break-inside: avoid; }
+  .cell-cn, .cell-en, .cell-pen, .glyph, .math-item { break-inside: avoid; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 
-/* 移动端。限定 screen：打印时 Chrome 的布局视口只有约 744px，
-   不加限定会把 .sheet{zoom:.46} 带到纸上，整页缩成巴掌大。 */
+/* 移动端：只作用于屏幕。若不加 screen，打印预览的宽度也算窄屏，
+   页面会被 zoom 缩到 46%，打出来只有半页大。 */
 @media screen and (max-width: 760px) {
   .wrap { padding: 14px 12px 60px; }
   .hero { padding: 30px 22px; }
