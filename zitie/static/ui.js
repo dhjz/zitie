@@ -367,17 +367,39 @@
       </div>`,
   };
 
-  // 英文格：四线三格
+  // 英文格：四线三格。
+  // 文字走 SVG 而不是 span —— 基线能精确落在第三条线的位置上（单位就是 mm，
+  // 跟版面同一套量纲），不然只能靠 line-height 猜，字会浮在格中间。
+  // 两条内线、字号也从字体度量算（见 Zu.enLayout），各款字体各自填满自己的格。
   G.ZCellEn = {
     name: 'ZCellEn',
     props: {
       cell: { type: Object, required: true }, ink: String, fontCss: String,
-      cellH: { type: Number, default: 9 }, fontSize: { type: Number, default: 15 },
+      fontKey: { type: String, default: 'shouxieti' },
+      cellW: { type: Number, default: 35 }, cellH: { type: Number, default: 9 },
+      size: { type: Number, default: 6 }, mid: { type: Number, default: 1 / 3 }, base: { type: Number, default: 2 / 3 },
+    },
+    setup(props) {
+      const box = computed(() => `0 0 ${props.cellW} ${props.cellH}`);
+      // 一处例外：长词（congratulation、zhuang）自己缩到格内，
+      // 免得顶穿隔壁格 —— 但不能因为一个长词把整页的字都变小
+      const fontSize = computed(() => {
+        const em = Z.textEm(props.cell.word, props.fontKey);
+        if (!em) return props.size;
+        return Math.floor(Math.min(props.size, (props.cellW - 2.4) / em) * 100) / 100;
+      });
+      return { box, fontSize };
     },
     template: `
       <div class="cell-en" :style="{ height: cellH + 'mm' }">
-        <i class="rule a"></i><i class="rule b"></i>
-        <span class="word" :style="{ color: cell.head ? '#262c36' : ink, fontFamily: fontCss, fontSize: fontSize + 'px' }">{{ cell.word || '' }}</span>
+        <i class="rule" :style="{ top: (mid * 100) + '%' }"></i>
+        <i class="rule" :style="{ top: (base * 100) + '%' }"></i>
+        <svg class="word" :viewBox="box" xmlns="http://www.w3.org/2000/svg">
+          <!-- viewBox 的单位就是 mm（跟格子同一套量纲），所以 font-size 直接写数字，
+               1 个单位 = 1mm。size 由 Zu.enLayout 按字体度量反算。 -->
+          <text v-if="cell.word" :x="cellW / 2" :y="base * cellH" text-anchor="middle"
+            :font-family="fontCss" :font-size="fontSize" :fill="cell.head ? '#262c36' : ink">{{ cell.word }}</text>
+        </svg>
       </div>`,
   };
 
@@ -436,7 +458,13 @@
         };
       });
       const fontCss = computed(() => props.doc.fontCss || '');
-      return { cols, gridStyle, fontCss };
+      // 英文/拼音格的字号与基线，由 gen* 按字体度量算好带过来；
+      // 老数据没有这个字段就现算一份，别让页面白屏
+      const glyph = computed(() => {
+        const w = Math.round(((props.doc.gridWidth || 176) / cols.value) * 100) / 100;
+        return props.doc.glyph || window.Zu.enLayout(props.doc.fontCss, w, props.doc.cellH || 9);
+      });
+      return { cols, gridStyle, fontCss, glyph };
     },
     template: `
       <div class="sheet">
@@ -450,8 +478,9 @@
               :font-css="fontCss" :cell-h="doc.cellH || 15" :py-h="doc.pyH || 7.4"></z-cell-cn>
           </div>
           <div v-else-if="doc.kind === 'en'" class="grid-en" :style="[gridStyle, { '--cell-line': doc.line }]">
-            <z-cell-en v-for="(c, i) in cells" :key="i" :cell="c" :ink="doc.ink" :font-css="fontCss"
-              :cell-h="doc.cellH || 9" :font-size="doc.fontSize || 15"></z-cell-en>
+            <z-cell-en v-for="(c, i) in cells" :key="i" :cell="c" :ink="doc.ink"
+              :font-css="fontCss" :font-key="doc.fontCss" :cell-h="glyph.cellH" :cell-w="glyph.cellW"
+              :size="glyph.size" :mid="glyph.mid" :base="glyph.base"></z-cell-en>
           </div>
           <div v-else-if="doc.kind === 'pen'" class="grid-pen" :class="{ gapped: doc.rowGap > 0 || doc.colGap > 0 }"
             :style="[gridStyle, { '--cell-line': doc.line }]">
@@ -554,6 +583,10 @@
     // 上次用过的参数记在本地，下次进来还是那套（比 zivip 每次重选省事）
     const saved = Z.load(key, {});
     const form = reactive(Object.assign({}, defaults, saved, { content: saved.content || defaults.content || '' }));
+    // 删过字体之后，本地存的还是旧 key（比如 enitali），表单里会留一个空选项
+    if (defaults.font_key && !(Z.EN_FONTS.concat(Z.PY_FONTS, Z.ZH_FONTS).some((f) => f.key === form.font_key))) {
+      form.font_key = defaults.font_key;
+    }
     const doc = ref(null);
     const pages = ref([]);
     const items = ref([]);
