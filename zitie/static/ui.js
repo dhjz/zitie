@@ -188,6 +188,8 @@
     cn: { cell: 44, cols: 6, top: 38 },
     en: { cellW: 44, cellH: 30, cols: 6, top: 40 },
     math: { rowH: 34, cols: 2, top: 38 },
+    // 控笔纸的格子跟田字格差不多大，一行铺满六格
+    pen: { cell: 42, cols: 6, top: 38 },
   };
 
   // 缩略图内容：paper 里的 rows 每格 { t: 字/词, s: 'head'|'trace'|'' }
@@ -244,6 +246,19 @@
         ['banana', '', '', '', '', ''],
       ],
     },
+    // 控笔：字是 PenControl 字体里的图形码位，1 = 横线，J = 波浪…
+    // 首行不设深色示范 —— 控笔纸上本来就全是淡色描线，没有「示范」这回事
+    pen: {
+      kind: 'pen', title: '控笔练习',
+      // 纸上只露前三四行（底部故意被卡片裁掉），所以把花样放前面
+      rows: [
+        ['1', '1', '1', '1', '1', '1'],
+        ['J', 'J', 'J', 'J', 'J', 'J'],
+        ['5', '5', '5', '5', '5', '5'],
+        ['', '', '', '', '', ''],
+        ['3', '3', '3', '3', '3', '3'],
+      ],
+    },
     math: {
       kind: 'math', title: '口算练习',
       rows: [
@@ -272,6 +287,8 @@
               out.push({ x: 24 + i * L.cell, y: L.top + r * L.cell, w: L.cell, h: L.cell, t, ink, guide: c.guide });
             } else if (c.kind === 'en') {
               out.push({ x: 24 + i * L.cellW, y: L.top + r * L.cellH, w: L.cellW, h: L.cellH, t, ink, guide: c.guide, small: t.length > 2 });
+            } else if (c.kind === 'pen') {
+              out.push({ x: 24 + i * L.cell, y: L.top + r * L.cell, w: L.cell, h: L.cell, t });
             }
           });
         });
@@ -293,6 +310,7 @@
         const L = LAYOUTS[c.kind];
         if (c.kind === 'cn') return { w: THUMB_W, h: THUMB_H, cols: L.cols, cell: L.cell, top: L.top };
         if (c.kind === 'en') return { w: THUMB_W, h: THUMB_H, cols: L.cols, cellW: L.cellW, cellH: L.cellH, top: L.top };
+        if (c.kind === 'pen') return { w: THUMB_W, h: THUMB_H, cols: L.cols, cell: L.cell, top: L.top };
         return { w: THUMB_W, h: THUMB_H };
       });
 
@@ -323,6 +341,11 @@
               <text :x="c.x + 4" :y="c.y + c.h * 0.66" class="th-math">{{ c.t }}</text>
               <line :x1="c.x + 8 + c.t.length * 6.4" :x2="c.x + c.w - 16" :y1="c.y + c.h * 0.72" :y2="c.y + c.h * 0.72"
                 stroke="#c9d4e2" stroke-width="1" />
+            </template>
+            <template v-else-if="conf.kind === 'pen'">
+              <rect :x="c.x" :y="c.y" :width="c.w" :height="c.h" fill="none" stroke="#cbd7e4" stroke-width="1" />
+              <text v-if="c.t" :x="c.x + c.w / 2" :y="c.y + c.h / 2" text-anchor="middle" dominant-baseline="central"
+                class="th-pen">{{ c.t }}</text>
             </template>
             <template v-else>
               <rect :x="c.x" :y="c.y" :width="c.w" :height="c.h" fill="none" stroke="#cbd7e4" stroke-width="1" />

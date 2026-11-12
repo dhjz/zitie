@@ -301,6 +301,9 @@ html.dark .thumb svg { filter: brightness(.93); }
 .th-glyph.head { fill: #2b3340; }
 .th-glyph.trace { fill: #eaa6a6; }
 .th-math { font-size: 11px; fill: #55606f; letter-spacing: .5px; }
+/* 控笔缩略图：字体的线条是细长矩形，缩到卡片上会细得看不见，
+   补一道同色描边当「加粗」，跟纸上那 0.07mm 的 stroke 是一个意思 */
+.th-pen { font-family: pencontrol; font-size: 34px; fill: #96b4d7; stroke: #96b4d7; stroke-width: 1.1; }
 
 /* ---------------- A4 预览 ---------------- */
 .preview { padding: 0; }
