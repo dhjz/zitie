@@ -128,6 +128,8 @@
       upTo: { type: [Number, null], default: null }, // 只画前 N 笔
       mode: { type: String, default: 'stroke' },     // stroke 笔画轮廓 / text 字体整字
       fontCss: { type: String, default: '' },
+      trace: { type: String, default: 'solid' },     // solid 实心 / hollow 空心 / dash 细虚线 / dot 圆点
+      head: { type: Boolean, default: false },       // 深色示范格
       pad: { type: Number, default: 64 },            // 内缩，字不顶格才像字帖
     },
     setup(props) {
@@ -157,14 +159,36 @@
           y: 1024 * m.baseline,
         };
       });
-      return { paths, box, face };
+      // 描字类型只作用在「字体整字」这条路上：CSS 描不了字形轮廓，
+      // 但 SVG 的 stroke + dasharray 可以 —— 一条属性就够，不用另存一套空心字体。
+      // hollow 空心、dash 细虚线、dot 圆点（dasharray 为 0 + 圆头，出来就是一串点）。
+      const pen = computed(() => {
+        if (props.trace === 'hollow') return { on: true, w: 24, dash: null, cap: null };
+        if (props.trace === 'dash') return { on: true, w: 11, dash: '44 32', cap: null };
+        if (props.trace === 'dot') return { on: true, w: 17, dash: '0 40', cap: 'round' };
+        return { on: false, w: 0, dash: null, cap: null };
+      });
+      const paint = computed(() => {
+        const traced = pen.value.on && !props.head;
+        return {
+          fill: traced ? 'none' : props.ink,
+          stroke: traced ? props.ink : 'none',
+          w: traced ? pen.value.w : 0,
+          dash: traced ? pen.value.dash : null,
+          cap: traced ? pen.value.cap : null,
+        };
+      });
+      return { paths, box, face, paint };
     },
     // 数据坐标系是 y 轴向上的 1024 方格，翻一下才是字形
     template: `
       <span class="glyph" :class="mode">
         <svg v-if="mode === 'text' && ch" :viewBox="box" xmlns="http://www.w3.org/2000/svg">
+          <!-- 示范格（head）永远是实心深色，孩子得先看清字形；
+               描字类型只改后面那些淡色的练习格 -->
           <text x="512" :y="face.y" :font-size="face.size" :font-family="face.family"
-            text-anchor="middle" :fill="ink">{{ ch }}</text>
+            text-anchor="middle" :fill="paint.fill" :stroke="paint.stroke" :stroke-width="paint.w"
+            :stroke-dasharray="paint.dash" :stroke-linecap="paint.cap">{{ ch }}</text>
         </svg>
         <svg v-else-if="paths.length" :viewBox="box" xmlns="http://www.w3.org/2000/svg">
           <g transform="scale(1,-1) translate(0,-900)">
@@ -377,6 +401,7 @@
     props: {
       cell: { type: Object, required: true }, pinyin: Boolean, guide: String, ink: String,
       mode: { type: String, default: 'text' }, fontCss: String,
+      trace: { type: String, default: 'solid' },
       cellH: { type: Number, default: 15 }, pyH: { type: Number, default: 7.4 },
     },
     template: `
@@ -385,7 +410,7 @@
         <div class="cell-ch" :style="{ minHeight: cellH + 'mm' }">
           <i class="cell-guide" :class="guide"></i>
           <z-glyph v-if="cell.ch" :ch="cell.ch" :ink="cell.head ? '#262c36' : ink"
-            :mode="mode" :up-to="cell.upTo" :font-css="fontCss" />
+            :mode="mode" :up-to="cell.upTo" :font-css="fontCss" :trace="trace" :head="cell.head" />
         </div>
       </div>`,
   };
@@ -495,9 +520,11 @@
           <div class="sheet-title" :style="{ borderBottomColor: doc.line, color: doc.titleColor || '#2b3340' }">{{ doc.title || '字帖练习本' }}</div>
         </div>
         <div class="sheet-bd">
-          <div v-if="doc.kind === 'cn'" class="grid-cn" :style="[gridStyle, { '--cell-line': doc.line }]">
+          <div v-if="doc.kind === 'cn'" class="grid-cn" :class="'guide-' + (doc.guide || 'tian')"
+            :style="[gridStyle, { '--cell-line': doc.line }]">
             <z-cell-cn v-for="(c, i) in cells" :key="i" :cell="c" :pinyin="doc.pinyin"
               :guide="doc.guide || 'tian'" :ink="doc.ink" :mode="doc.render || 'text'"
+              :trace="doc.trace || 'solid'"
               :font-css="fontCss" :cell-h="doc.cellH || 15" :py-h="doc.pyH || 7.4"></z-cell-cn>
           </div>
           <div v-else-if="doc.kind === 'en'" class="grid-en" :style="[gridStyle, { '--cell-line': doc.line }]">
@@ -521,10 +548,21 @@
               </template>
             </div>
           </div>
+          <!-- 订正格：每页底部一行「改错」，从版心里扣出来的高度，
+               所以上面的格子照样铺满，不会多出一页来 -->
+          <div v-if="doc.fixH" class="fix-row" :style="{ height: doc.fixH + 'mm', '--cell-line': doc.line }">
+            <span class="fix-tag">订正</span>
+            <i></i><i></i>
+          </div>
         </div>
         <div class="sheet-ft">
-          <span v-if="pageTotal > 1">第 {{ pageNo }} / {{ pageTotal }} 页</span>
-          <span v-else>&nbsp;</span>
+          <!-- 页脚：学生交作业得写名字，纸上没地方写就得手抄一行 -->
+          <div v-if="doc.foot" class="foot-fields">
+            <span v-if="doc.foot.name">姓名：<i></i></span>
+            <span v-if="doc.foot.cls">班级：<i></i></span>
+            <span v-if="doc.foot.date">日期：<i></i></span>
+          </div>
+          <span v-if="pageTotal > 1" class="foot-page">第 {{ pageNo }} / {{ pageTotal }} 页</span>
         </div>
       </div>`,
   };

@@ -11,9 +11,12 @@
     font_key: 'kaiti',
     font_type: 1,       // 1 描字 2 笔顺
     pinyin: 1,
-    guide: 'tian',      // tian / mi / hui
+    guide: 'tian',      // 见 Z.GUIDE_OPTIONS
+    trace: 1,           // 1 实心 2 空心 3 细虚线 4 圆点
     fill_row: 1,        // 每个字几行描字格
     blank_row: 1,       // 每个字几行空格
+    fix: 0,             // 每页尾部要不要一行订正格
+    foot: 1,            // 0 无 / 1 姓名日期 / 2 姓名班级日期
     border_color: 'rgb(56, 152, 219)',
     font_color: 'rgb(255, 120, 120)',
   };
@@ -31,11 +34,12 @@
       const { form, doc, pages, items, generate, print, pageCount } = gen;
 
       const fontOptions = Z.ZH_FONTS;
-      const guideOptions = [
-        { v: 'tian', label: '田字格' },
-        { v: 'mi', label: '米字格' },
-        { v: 'hui', label: '回宫格' },
-      ];
+      const guideOptions = Z.GUIDE_OPTIONS;
+      const traceOptions = Z.TRACE_OPTIONS;
+      const footOptions = Z.FOOT_OPTIONS;
+      // 笔顺模式画的是笔画轮廓数据，描字类型（空心/虚线）对它没意义
+      const traceTip = Vue.computed(() =>
+        Number(form.font_type) === 2 ? '笔顺画的是笔画轮廓，描字类型不生效，切到「描字」才管用' : '');
       // 输入框里非汉字会被点出来，不静默吞掉
       const dropped = Vue.computed(() => {
         const raw = String(form.content || '').replace(/[\u4e00-\u9fa5\s，。、；：！？,.;:!?]/g, '');
@@ -50,7 +54,8 @@
 
       return {
         ...gen, form, doc, pages, items, generate, print, pageCount,
-        fontOptions, guideOptions, charCount, dropped, strokeDisabled,
+        fontOptions, guideOptions, traceOptions, footOptions, traceTip,
+        charCount, dropped, strokeDisabled,
         borderColors: Z.BORDER_COLORS, inkColors: Z.INK_COLORS,
       };
     },
@@ -74,8 +79,13 @@
                 ]"></z-seg>
               </z-field>
 
-              <z-field label="格线">
+              <z-field label="格型">
                 <z-seg v-model="form.guide" :options="guideOptions"></z-seg>
+              </z-field>
+
+              <z-field label="描字" tip="空心字、虚线字用来练笔顺走向；示范格永远实心，只改练习格">
+                <z-seg v-model="form.trace" :options="traceOptions"></z-seg>
+                <div class="hint" v-if="traceTip">{{ traceTip }}</div>
               </z-field>
 
               <z-field label="字体">
@@ -89,6 +99,14 @@
               <z-field label="行数" tip="每个字后面补几行描字格 / 空白格">
                 <z-num v-model="form.fill_row" :min="0" :max="5" suffix="行描字"></z-num>
                 <z-num v-model="form.blank_row" :min="0" :max="5" suffix="行空白"></z-num>
+              </z-field>
+
+              <z-field label="订正格" tip="每页底部留一行「改错」区，高度从版心里扣，不多占纸张">
+                <z-seg v-model="form.fix" :options="[{ v: 0, label: '不要' }, { v: 1, label: '要' }]"></z-seg>
+              </z-field>
+
+              <z-field label="页脚" tip="姓名 / 班级 / 日期，交作业要写的那种">
+                <z-seg v-model="form.foot" :options="footOptions"></z-seg>
               </z-field>
             </div>
 

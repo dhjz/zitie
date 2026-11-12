@@ -565,14 +565,46 @@
   /* 一页能放几行、格子多高。
      先把行数取整，再把余量平摊回格子 —— 否则页面底部会空出一条白边，
      打印出来就是「上面挤、下面空」。 */
-  Z.gridFor = (cols, baseCellH, pinyin) => {
+  Z.gridFor = (cols, baseCellH, pinyin, reserve) => {
+    // reserve：订正格那种「每页固定留一行」占掉的毫米数，从版心里扣掉再排行数
+    const bodyH = Z.BODY_H - (reserve || 0);
     const gap = pinyin ? Z.PY_H : 0;
     const unit = baseCellH + gap;
-    const rows = Math.max(1, Math.floor((Z.BODY_H + 0.3) / unit));
+    const rows = Math.max(1, Math.floor((bodyH + 0.3) / unit));
     // 每行 1px 边框约 0.26mm，算进去
-    const cellH = (Z.BODY_H - rows * 0.3) / rows - gap;
+    const cellH = (bodyH - rows * 0.3) / rows - gap;
     return { cols, rows, cellH: Math.round(Math.min(baseCellH * 1.15, cellH) * 100) / 100, perPage: cols * rows };
   };
+
+  /* ---------------- 格型 / 描字类型 / 页脚 ----------------
+     格型是 .cell-guide 上的一个 class，纯 CSS 伪元素 + gradient 画的；
+     描字类型决定字形那条 <text> 的描边怎么写；页脚与订正格都挂在 doc 上，
+     ZSheet 照着渲染 —— 各页面只管把选项原样传进来。 */
+  Z.GUIDE_OPTIONS = [
+    { v: 'tian', label: '田字格' }, { v: 'mi', label: '米字格' }, { v: 'hui', label: '回宫格' },
+    { v: 'cross', label: '交叉格' }, { v: 'fang', label: '方格' }, { v: 'jiu', label: '九宫格' },
+    { v: 'shuang', label: '双横线' }, { v: 'wu', label: '无格' },
+  ];
+
+  Z.TRACE_OPTIONS = [
+    { v: 1, label: '实心' }, { v: 2, label: '空心' }, { v: 3, label: '细虚线' }, { v: 4, label: '圆点' },
+  ];
+  // 1 实心（填色）/ 2 空心（描边）/ 3 细虚线（描边虚线）/ 4 圆点（点线描边）
+  Z.traceOf = (v) => ({ 2: 'hollow', 3: 'dash', 4: 'dot' }[Number(v)] || 'solid');
+
+  // 页脚 0 无 / 1 姓名日期 / 2 姓名班级日期
+  Z.FOOT_OPTIONS = [
+    { v: 0, label: '不要' }, { v: 1, label: '姓名日期' }, { v: 2, label: '姓名班级日期' },
+  ];
+  Z.footOf = (v) => {
+    const n = Z.clamp(v, 0, 2);
+    if (!n) return null;
+    return { name: true, cls: n >= 2, date: true };
+  };
+
+  // 订正格：每页尾部一行「改错」区，高度从版心里扣，所以页面照样是满版
+  Z.FIX_H = 14; // 一行订正格占的高度，含跟上面格子之间的空隙
+  Z.fixH = (v) => (Number(v) ? Z.FIX_H : 0);
 
   // 汉字格：{ ch, py, head, upTo }
   const cellCh = (ch, py, head, upTo) => ({ ch: ch || '', py: py || '', head: !!head, upTo: upTo == null ? null : upTo });
@@ -595,7 +627,8 @@
     if (!chars.length) return null;
     const cols = 12;
     const pinyin = !!form.pinyin;
-    const grid = Z.gridFor(cols, 15, pinyin);
+    const fixH = Z.fixH(form.fix);
+    const grid = Z.gridFor(cols, 15, pinyin, fixH);
     const { cellH, perPage } = grid;
     const fillRow = Z.clamp(form.fill_row, 0, 5);
     const blankRow = Z.clamp(form.blank_row, 0, 5);
@@ -634,6 +667,9 @@
         guide: form.guide || 'tian', line: form.border_color, ink: form.font_color,
         fontCss: form.font_key || 'kaiti',
         render: Number(form.font_type) === 2 ? 'stroke' : 'text',
+        // 笔顺帖画的是笔画轮廓，描字类型对它没意义；描字帖才按选项描边
+        trace: Number(form.font_type) === 2 ? 'solid' : Z.traceOf(form.trace),
+        foot: Z.footOf(form.foot), fixH,
         gridWidth: 180,
       },
       pages: Z.paginateBlocks(blocks, perPage, () => cellCh('', '')),
@@ -686,6 +722,7 @@
         kind: 'en', title: form.title, cols, cellH, pinyin: false,
         guide: 'en', line: form.border_color, ink: form.font_color,
         fontCss, gridWidth,
+        foot: Z.footOf(form.foot),
         glyph: Z.enLayout(fontCss, gridWidth / cols, cellH),
       },
       pages: Z.paginateBlocks(blocks, perPage, () => ({ word: '', head: false, py: true })),
@@ -730,6 +767,7 @@
         kind: 'en', title: form.title, cols, cellH, pinyin: false,
         guide: 'en', line: form.border_color, ink: form.font_color,
         fontCss, gridWidth,
+        foot: Z.footOf(form.foot),
         // 字号与两条内线由字体度量算（见 Z.enLayout），一页就一个字号
         glyph: Z.enLayout(fontCss, gridWidth / cols, cellH),
       },
@@ -754,6 +792,7 @@
       doc: {
         kind: 'math', title: form.title, cols: half ? 2 : 3, cellH: rowH,
         line: form.border_color || 'rgb(56, 152, 219)', ink: form.font_color,
+        foot: Z.footOf(form.foot),
       },
       pages: [],
       items: Z.paginate(items, perPage2),
@@ -768,7 +807,8 @@
     if (!text.replace(/\s/g, '')) return null;
     const cols = Z.clamp(form.cols || 12, 6, 16);
     const pinyin = !!form.pinyin;
-    const grid = Z.gridFor(cols, 15, pinyin);
+    const fixH = Z.fixH(form.fix);
+    const grid = Z.gridFor(cols, 15, pinyin, fixH);
     const { cellH, perPage } = grid;
     const pys = Z.pinyinList(text);
     const blank = { ch: '', py: '', head: false, upTo: null };
@@ -795,6 +835,8 @@
         guide: form.guide || 'tian', line: form.border_color, ink: form.font_color,
         fontCss: form.font_key || 'kaiti',
         render: 'text', // 整段文字只走字体，逐笔拆一整篇课文没有意义
+        trace: Z.traceOf(form.trace),
+        foot: Z.footOf(form.foot), fixH,
         gridWidth: 180,
       },
       pages: Z.paginate(cells, perPage).map((p) =>
@@ -878,6 +920,7 @@
         cellW: Math.round(colW * 100) / 100,
         rowGap: gap, colGap: gap,
         line: form.border_color, ink: form.trace_color,
+        foot: Z.footOf(form.foot),
         gridWidth: Z.PEN_WIDTH - gap * (cols - 1),
       },
       pages: Z.paginateBlocks(blocks, perPage, () => ({ ch: '' })),
@@ -885,11 +928,13 @@
   };
 
   /* 空白练习纸
-     type 1 田字格 / 2 田+拼音 / 3 米字格 / 4 米+拼音 / 5 英文四线 */
+     guide 就是格型（跟汉字字帖同一套），另加一个 'en' 表示四线三格；
+     pinyin 决定汉字格上面有没有拼音行。 */
+  Z.BLANK_GUIDES = Z.GUIDE_OPTIONS.concat([{ v: 'en', label: '四线三格' }]);
   Z.genBlank = (form) => {
-    const type = Z.clamp(form.type || 1, 1, 5);
+    const guide = form.guide || 'tian';
     const num = Z.clamp(form.num || 2, 1, 50);
-    if (type === 5) {
+    if (guide === 'en') {
       const cols = 5;
       const grid = Z.gridFor(cols, 9, false);
       const { cellH, perPage } = grid;
@@ -898,20 +943,22 @@
         doc: {
           kind: 'en', title: form.title, cols, cellH, pinyin: false, guide: 'en',
           line: form.border_color, ink: form.font_color, fontCss: 'shouxieti', gridWidth: 176,
+          foot: Z.footOf(form.foot),
           // 空白纸虽然不写字，四条线也照同一个公式摆，写上去跟真字帖对得上
           glyph: Z.enLayout('shouxieti', 176 / cols, cellH),
         },
         pages: Array.from({ length: num }, () => page),
       };
     }
-    const pinyin = type === 2 || type === 4;
-    const guide = type === 3 || type === 4 ? 'mi' : 'tian';
+    const pinyin = !!form.pinyin;
     const cols = 12;
     const grid = Z.gridFor(cols, 15, pinyin);
     const { cellH, perPage } = grid;
     const page = Array.from({ length: perPage }, () => ({ ch: '', py: '', head: false }));
     return {
-      doc: { kind: 'cn', title: form.title, cols, cellH, pinyin, pyH: Z.PY_H, guide, line: form.border_color, ink: form.font_color, fontCss: 'kaiti', render: 'text', gridWidth: 180 },
+      doc: { kind: 'cn', title: form.title, cols, cellH, pinyin, pyH: Z.PY_H, guide,
+        line: form.border_color, ink: form.font_color, fontCss: 'kaiti', render: 'text',
+        foot: Z.footOf(form.foot), gridWidth: 180 },
       pages: Array.from({ length: num }, () => page),
     };
   };

@@ -343,7 +343,29 @@ html.dark .thumb svg { filter: brightness(.93); }
   padding: 0 12px 3px; border-bottom: 2px solid currentColor;
 }
 .sheet-bd { flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; min-height: 0; }
-.sheet-ft { height: 8mm; flex: 0 0 auto; display: flex; align-items: flex-end; justify-content: center; font-size: 10px; color: #98a2b3; letter-spacing: .5px; }
+.sheet-ft {
+  position: relative; height: 8mm; flex: 0 0 auto;
+  display: flex; align-items: flex-end; justify-content: center;
+  font-size: 10px; color: #98a2b3; letter-spacing: .5px;
+}
+/* 页脚那几栏：姓名 / 班级 / 日期，横线上给孩子填。
+   没开页脚时页码还是居中（跟以前一样），开了就压到右边，别跟姓名挤 */
+.foot-fields { display: flex; gap: 7mm; color: #56637a; font-size: 11px; }
+.foot-fields i { display: inline-block; width: 22mm; border-bottom: 1px solid #c6cfdc; height: 3.2mm; }
+.foot-page { position: absolute; right: 0; bottom: 0; }
+
+/* 订正格：每页尾巴上一行「改错」区。
+   左边一个标签，右边两条横线，孩子把写错的字抄一遍。
+   高度由 gen* 从版心里扣出来（doc.fixH），所以整页照样是满的；
+   上内边距当它跟格区之间的空隙，不另加 margin —— 加了就溢出版心。 */
+.fix-row {
+  width: 100%; flex: 0 0 auto;
+  display: flex; align-items: center; gap: 3mm;
+  border: 1px solid var(--cell-line, #3898db); border-radius: 1mm;
+  padding: 2.6mm 2mm 1.4mm; color: var(--cell-line, #3898db);
+}
+.fix-tag { font-size: 10px; letter-spacing: 1px; flex: 0 0 auto; color: #6b7688; }
+.fix-row i { flex: 1 1 0; border-bottom: 1px dashed color-mix(in srgb, currentColor 45%, #fff); height: 60%; }
 
 /* ---------------- 格子 ---------------- */
 .grid-cn {
@@ -377,6 +399,31 @@ html.dark .thumb svg { filter: brightness(.93); }
 .cell-guide.hui { border: 1px dashed color-mix(in srgb, currentColor 55%, #fff); inset: 6%; }
 .cell-guide.hui::before { left: 50%; top: 0; bottom: 0; border-left: 1px dashed color-mix(in srgb, currentColor 40%, #fff); }
 .cell-guide.hui::after { top: 50%; left: 0; right: 0; border-top: 1px dashed color-mix(in srgb, currentColor 40%, #fff); }
+
+/* 交叉格：只有对角线，没有十字 —— 「米」里那两笔斜的才看得出撇捺的走向 */
+.cell-guide.cross { background-image:
+    linear-gradient(to bottom right, transparent calc(50% - 0.4px), color-mix(in srgb, currentColor 42%, #fff) 50%, transparent calc(50% + 0.4px)),
+    linear-gradient(to top right, transparent calc(50% - 0.4px), color-mix(in srgb, currentColor 42%, #fff) 50%, transparent calc(50% + 0.4px)); }
+
+/* 方格：一个字一块，什么都不画 —— 练结构的时候线越少越好 */
+.cell-guide.fang { display: none; }
+
+/* 九宫格：三条线切九块，四笔都用 background 画，
+   不用伪元素（只有两个，不够用） */
+.cell-guide.jiu { background-image:
+    linear-gradient(to right, transparent calc(33.333% - .45px), color-mix(in srgb, currentColor 38%, #fff) calc(33.333% - .45px), color-mix(in srgb, currentColor 38%, #fff) calc(33.333% + .45px), transparent calc(33.333% + .45px)),
+    linear-gradient(to right, transparent calc(66.666% - .45px), color-mix(in srgb, currentColor 38%, #fff) calc(66.666% - .45px), color-mix(in srgb, currentColor 38%, #fff) calc(66.666% + .45px), transparent calc(66.666% + .45px)),
+    linear-gradient(to bottom, transparent calc(33.333% - .45px), color-mix(in srgb, currentColor 38%, #fff) calc(33.333% - .45px), color-mix(in srgb, currentColor 38%, #fff) calc(33.333% + .45px), transparent calc(33.333% + .45px)),
+    linear-gradient(to bottom, transparent calc(66.666% - .45px), color-mix(in srgb, currentColor 38%, #fff) calc(66.666% - .45px), color-mix(in srgb, currentColor 38%, #fff) calc(66.666% + .45px), transparent calc(66.666% + .45px)); }
+
+/* 双横线：抄写本那种横线页 —— 每行上下两条实线，中间一条虚的中线当基线参考。
+   竖线全去掉，格间距也归零；一排字横着连着写下去才是横线本的样子 */
+.grid-cn.guide-shuang { border-left: 0; }
+.grid-cn.guide-shuang .cell-cn { border-right: 0; }
+.cell-guide.shuang::after { top: 50%; left: 0; right: 0; border-top: 1px dashed color-mix(in srgb, currentColor 40%, #fff); }
+
+/* 无格：一片白纸，只剩字 */
+.grid-cn.guide-wu, .grid-cn.guide-wu .cell-cn { border: 0; }
 
 /* 笔画轮廓的 viewBox 已经自带留白，容器再内缩 1.1mm 让它不顶格；
    字体整字不用缩 —— 字号是按墨迹量到格子的 94% 算的，再内缩就瘦一圈。 */

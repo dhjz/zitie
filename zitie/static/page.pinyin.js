@@ -11,6 +11,7 @@
     content: '春眠不觉晓',
     repeat_times: 6,
     blank_row: 1,
+    foot: 0,
     border_color: 'rgb(56, 152, 219)',
     font_color: 'rgb(255, 120, 120)',
   };
@@ -36,7 +37,7 @@
       const charCount = Vue.computed(() => Z.chars(form.content).length);
 
       return { ...gen, form, doc, pages, items, generate, print,
-        typeOptions, charCount, fonts: Z.PY_FONTS,
+        typeOptions, charCount, fonts: Z.PY_FONTS, footOptions: Z.FOOT_OPTIONS,
         borderColors: Z.BORDER_COLORS, inkColors: Z.INK_COLORS };
     },
     template: `
@@ -61,6 +62,9 @@
               </z-field>
 
               <z-field label="空行"><z-num v-model="form.blank_row" :min="0" :max="5" suffix="行空白"></z-num></z-field>
+              <z-field label="页脚" tip="姓名 / 班级 / 日期">
+                <z-seg v-model="form.foot" :options="footOptions"></z-seg>
+              </z-field>
             </div>
 
             <div class="card-bd">
