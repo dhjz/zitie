@@ -29,6 +29,8 @@
     setup() {
       const route = ref(parse());
       const dark = ref(document.documentElement.classList.contains('dark'));
+      // 素材合集弹窗放在壳上：任何页面都能点开，不各页复制一份
+      const showCollections = ref(false);
 
       const go = (name) => {
         if (name === route.value) return;
@@ -50,7 +52,7 @@
         if (!location.hash) history.replaceState(null, '', '#/home');
       });
 
-      return { route, dark, go, toggleTheme, routes: ROUTES };
+      return { route, dark, go, toggleTheme, routes: ROUTES, showCollections };
     },
   };
 

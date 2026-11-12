@@ -8,7 +8,7 @@
     <meta name="keywords" content="字帖,田字格字帖,笔顺字帖,拼音字帖,英文字帖,数学练习,口算题,描红,在线生成,打印字帖,米字格,回宫格" />
     <meta name="description" content="纯前端离线字帖生成器：汉字描红与笔顺、拼音、英文四线三格、数学口算、词语文章、空白练习纸。A4 排版，浏览器直接打印或存 PDF。" />
     <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
-    <link rel="stylesheet" href="static/app.css?v=8" />
+    <link rel="stylesheet" href="static/app.css?v=10" />
   </head>
   <body>
     <!-- 根组件：模板写在这里，逻辑在 static/index.js。
@@ -29,6 +29,9 @@
                 :class="{ on: route === r.name }" @click="go(r.name)">{{ r.title }}</button>
             </nav>
             <div class="topbar-right">
+              <button class="btn btn-collection" title="年级生字与国学合集" @click="showCollections = true">
+                <span class="col-ico">📚</span><span class="col-txt">素材合集</span>
+              </button>
               <button class="icon-btn" :title="dark ? '切到亮色' : '切到暗色'" @click="toggleTheme">{{ dark ? '☀️' : '🌙' }}</button>
               <button class="icon-btn" title="使用说明" @click="go('guide')">?</button>
             </div>
@@ -47,6 +50,7 @@
           <guide-page v-else-if="route === 'guide'"></guide-page>
         </main>
 
+        <collection-dialog v-model="showCollections"></collection-dialog>
         <z-toasts></z-toasts>
       </div>
     </div>
@@ -65,8 +69,10 @@
       window.myComponents = {};
     </script>
     <script src="static/data/pinyin-pro.js"></script>
+    <script src="static/data/collections.js?v=1"></script>
     <script src="static/utils.js?v=7"></script>
-    <script src="static/ui.js?v=8"></script>
+    <script src="static/ui.js?v=10"></script>
+    <script src="static/collection.js?v=2"></script>
     <script src="static/page.home.js?v=6"></script>
     <script src="static/page.hanzi.js?v=4"></script>
     <script src="static/page.pinyin.js?v=5"></script>
@@ -76,6 +82,6 @@
     <script src="static/page.pen.js?v=6"></script>
     <script src="static/page.blank.js?v=3"></script>
     <script src="static/page.guide.js?v=3"></script>
-    <script src="static/index.js?v=5"></script>
+    <script src="static/index.js?v=6"></script>
   </body>
 </html>
