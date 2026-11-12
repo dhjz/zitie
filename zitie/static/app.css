@@ -117,7 +117,7 @@ a { color: inherit; text-decoration: none; }
 /* ---------------- 布局 ---------------- */
 .wrap { max-width: 1440px; margin: 0 auto; padding: 22px 20px 80px; }
 .split { display: grid; grid-template-columns: 372px minmax(0, 1fr); gap: 22px; align-items: start; }
-@media (max-width: 1080px) { .split { grid-template-columns: 1fr; } }
+@media screen and (max-width: 1080px) { .split { grid-template-columns: 1fr; } }
 
 .card {
   background: var(--surface);
@@ -137,7 +137,7 @@ a { color: inherit; text-decoration: none; }
 .side { position: sticky; top: 82px; max-height: calc(100vh - 100px); overflow-y: auto; padding-right: 4px; }
 .side::-webkit-scrollbar { width: 8px; }
 .side::-webkit-scrollbar-thumb { background: var(--line); border-radius: 8px; }
-@media (max-width: 1080px) { .side { position: static; max-height: none; } }
+@media screen and (max-width: 1080px) { .side { position: static; max-height: none; } }
 
 /* ---------------- 控件 ---------------- */
 .field { display: grid; grid-template-columns: 66px minmax(0, 1fr); gap: 10px; align-items: start; }
@@ -330,7 +330,9 @@ html.dark .thumb svg { filter: brightness(.93); }
 .cell-guide { position: absolute; inset: 0; pointer-events: none; }
 /* 田字格：十字虚线；米字格再加对角线；回宫格加内框。
    对角线用 background 的 linear-gradient 画，比旋转伪元素稳 —— 
-   旋转的元素宽度是盒子对角线以外的长度，45° 一转就短一截。 */
+   旋转的元素宽度是盒子对角线以外的长度，45° 一转就短一截。
+   伪元素一律先写 content:''，否则不生成盒子，格子里的十字线全不见。 */
+.cell-guide::before, .cell-guide::after { content: ''; position: absolute; }
 .cell-guide.tian::before { left: 50%; top: 0; bottom: 0; border-left: 1px dashed color-mix(in srgb, currentColor 55%, #fff); }
 .cell-guide.tian::after { top: 50%; left: 0; right: 0; border-top: 1px dashed color-mix(in srgb, currentColor 55%, #fff); }
 .cell-guide.mi { background-image:
@@ -382,8 +384,9 @@ html.dark .thumb svg { filter: brightness(.93); }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 
-/* 移动端 */
-@media (max-width: 760px) {
+/* 移动端。限定 screen：打印时 Chrome 的布局视口只有约 744px，
+   不加限定会把 .sheet{zoom:.46} 带到纸上，整页缩成巴掌大。 */
+@media screen and (max-width: 760px) {
   .wrap { padding: 14px 12px 60px; }
   .hero { padding: 30px 22px; }
   .hero h1 { font-size: 25px; }
