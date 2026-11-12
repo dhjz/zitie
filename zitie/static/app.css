@@ -388,9 +388,11 @@ html.dark .thumb svg { filter: brightness(.93); }
 /* 四线三格（英文） */
 .grid-en { display: grid; border-top: 1px solid currentColor; border-left: 1px solid currentColor; color: var(--cell-line, #3898db); }
 .cell-en { position: relative; height: 9mm; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; background: #fff; }
+/* 两条内线的位置由组件按字体度量给（top: %），不写死在这里 */
 .cell-en .rule { position: absolute; left: 0; right: 0; border-top: 1px dashed color-mix(in srgb, currentColor 45%, #fff); }
-.cell-en .rule.a { top: 30%; } .cell-en .rule.b { top: 70%; }
-.cell-en .word { position: absolute; inset: 0; display: grid; place-items: center; font-size: 22px; line-height: 1; white-space: nowrap; }
+/* 字走 SVG：viewBox 用 mm 建，基线就精确落在第三条线上，字号也随度量走。
+   overflow 收一下，万一某个字形伸出格也不至于糊到隔壁格。 */
+.cell-en .word { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; }
 
 /* 控笔练习：格子里就是字体字形，不需要田字格线。
    格线跟田字格一样画：外框由容器出上/左边，格子出下/右边，
