@@ -637,15 +637,7 @@
     };
 
     // 进来先出一版：空白页面对新用户没意义
-    // 合集弹窗选中一条后，把内容塞进当前这张表单。页面在场时走这条路，
-    // 不在场的话组件挂载时已经从 localStorage 读到内容了。
-    // 页面是 v-if 切走的，挂载时加上就得在卸载时摘掉，否则来回切几次就叠几层。
-    const onFill = (e) => {
-      if (!e.detail || e.detail.key !== key) return;
-      Object.assign(form, e.detail.patch);
-    };
-    Vue.onMounted(() => { generate(); window.addEventListener('zitie:fill', onFill); });
-    Vue.onUnmounted(() => window.removeEventListener('zitie:fill', onFill));
+    Vue.onMounted(generate);
 
     // 参数一变就重排：本地计算，几毫秒的事，比点按钮顺手
     watch(() => ({ ...form }), () => {

@@ -530,8 +530,7 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 6px; font-
   background: var(--surface-2); border: 1px solid var(--line-soft);
   transition: border-color .16s, box-shadow .16s, transform .16s;
 }
-.col-item:hover { border-color: var(--line); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
-.col-item.on { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); }
+.col-item:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
 .col-item-hd { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .col-item-hd b { font-size: 14px; }
 .col-tag {
@@ -545,6 +544,29 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 6px; font-
   letter-spacing: 1.5px; font-family: kaiti, 'KaiTi', serif;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* 方格视图：正文摊成一个个紧凑小方格，点一下高亮、再点取消。
+   字间距靠 gap 撑，不用 letter-spacing —— 那样点选区域会歪。 */
+.grid-view { display: block; }
+.gx-back {
+  display: block; margin-bottom: 10px; padding: 4px 10px; border-radius: 999px;
+  font-size: 12px; color: var(--text-3); background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+}
+.gx-back:hover { color: var(--text); border-color: var(--line); }
+.gx-line { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 3px; }
+.gx-cell {
+  /* 定宽定高才排得整齐：楷体各字宽不一样，flex 一撑就参差 */
+  width: 26px; height: 26px; flex: 0 0 auto;
+  display: grid; place-items: center;
+  font-family: kaiti, 'KaiTi', serif; font-size: 17px; line-height: 1;
+  color: var(--text); background: var(--surface);
+  border: 1px solid var(--line-soft); border-radius: 6px;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.gx-cell:hover { border-color: var(--accent); }
+.gx-cell.on {
+  background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600;
+}
 .modal-ft {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 14px 20px; border-top: 1px solid var(--line-soft); background: var(--surface-2);
@@ -557,4 +579,5 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 6px; font-
   .btn-collection { padding: 7px 10px; }
   .col-txt, .modal-ft .hint { display: none; }
   .modal-ft { justify-content: flex-end; }
+  .gx-cell { width: 23px; height: 23px; font-size: 15px; }
 }
