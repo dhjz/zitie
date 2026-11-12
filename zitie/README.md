@@ -12,7 +12,8 @@ static/
   ui.js           组件层：控件、A4 纸张、格子
   index.js        入口：路由、主题、装配
   page.*.js       各功能页（自注册进 window.myComponents）
-  data/           笔顺数据与拼音引擎
+  collection.js   素材合集：弹窗、页签、填入目标页
+  data/           笔顺数据、拼音引擎、素材合集数据
   fonts/          中文六款、英文四款、拼音两款、控笔线条一套
 ```
 
@@ -75,6 +76,26 @@ size = (格高 - 0.3mm) / (asc + desc)     # 升部顶贴格顶、降部底贴�
 `asc` / `xh` / `desc` 是字体文件里量出来的真实字形高度（`Z.GLYPH_METRICS`），不是估的。以前每款字体手调一个 px（17 / 20 / 22），各家 x 高度差近一倍，纸上就是一溜小字浮在格中间。
 
 加一款英文字体的话，用 `fontTools` 量一下这三个数、按 `Z.EN_CHARS` 顺序把字宽抄进 `adv`，再往 `Z.EN_FONTS` 加一条即可。
+
+## 素材合集
+
+顶栏右上角的「素材合集」是一堆现成的练字素材：小学一到六年级上册/下册生字表（11 份）
+加国学三篇（三字经、弟子规、千字文）。点开按年级分页签，选一条，直接填进**汉字字帖**或**词语文章**。
+
+数据在 `data/collections.js`，来源是 `../zivip/download/` 那 14 张下载页的正文 ——
+也就是原站那批 PDF 字帖的内容本身。分年级生字是纯汉字串（原站就是这么排的），
+国学保留标点、按 12 字断行，丢进词语文章正好一行一句。
+
+填内容这条路只干两件事：
+
+```js
+Z.save(target, { ...Z.load(target, {}), content, title });   // 写该页的表单存档
+window.dispatchEvent(new CustomEvent('zitie:fill', { detail: { key: target, patch } }));
+```
+
+写存档管「该页还没挂载」的情况 —— 切过去时 `useGen` 正是从 localStorage 读初始值；
+发事件管「该页就在眼前」的情况，`useGen` 里的监听直接把内容 `Object.assign` 进表单，
+参数随手重排。两件事都要做，少一件就有一种路径是空的。
 
 ## 数据
 
