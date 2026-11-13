@@ -38,9 +38,11 @@
         { v: 4, label: '汉字注音' },
       ];
       const charCount = Vue.computed(() => Z.chars(form.content).length);
+      // 拼音也是字体整字，只有描边那几档能用
+      const traceOptions = Z.EN_TRACE_OPTIONS;
 
       return { ...gen, form, doc, pages, items, generate, print,
-        typeOptions, charCount, fonts: Z.PY_FONTS, footOptions: Z.FOOT_OPTIONS,
+        typeOptions, charCount, traceOptions, fonts: Z.PY_FONTS, footOptions: Z.FOOT_OPTIONS,
         borderColors: Z.BORDER_COLORS, inkColors: Z.INK_COLORS };
     },
     template: `
@@ -58,6 +60,10 @@
 
               <z-field label="字体">
                 <z-fonts v-model="form.font_key" :fonts="fonts" sample="b p m f"></z-fonts>
+              </z-field>
+
+              <z-field label="描字" tip="示范格永远实心深色，只改后面的练习格">
+                <z-seg v-model="form.trace" :options="traceOptions"></z-seg>
               </z-field>
 
               <z-field label="重复" tip="同一行铺几遍，铺满自动换行">

@@ -12,7 +12,7 @@
     font_type: 1,       // 1 描字 2 笔顺
     pinyin: 1,
     guide: 'tian',      // 见 Z.GUIDE_OPTIONS
-    trace: 1,           // 1 实心 2 空心 3 细虚线 4 圆点
+    trace: 1,           // 见 Z.TRACE_OPTIONS
     fill_row: 1,        // 每个字几行描字格
     blank_row: 1,       // 每个字几行空格
     row_pattern: '',    // 间隔描字：一行一个记号（描/空），填了就不看上面两个
@@ -41,7 +41,14 @@
 
       const fontOptions = Z.ZH_FONTS;
       const guideOptions = Z.GUIDE_OPTIONS;
-      const traceOptions = Z.TRACE_OPTIONS;
+      // 描字走字体整字，能做的只有「SVG stroke 描边」那一类；
+      // 填充虚线、擦除画要笔心线，字体里没有这信息，只能置灰
+      const traceOptions = Vue.computed(() =>
+        Z.TRACE_OPTIONS.map((o) => {
+          const fontPath = Number(form.font_type) !== 2;   // 描字 = 字体整字
+          const off = fontPath && Z.traceVectorOnly(Z.traceOf(o.v));
+          return off ? { ...o, disabled: true, tip: '这一档要把笔心线从字里剃出来，字体整字没有笔心线；切到「笔顺」才管用' } : o;
+        }));
       const footOptions = Z.FOOT_OPTIONS;
       const pyStyles = Z.PY_STYLES;
 
@@ -79,9 +86,12 @@
         for (const k of Object.keys(form.pinyin_fix || {})) delete form.pinyin_fix[k];
         generate();
       };
-      // 笔顺模式画的是笔画轮廓数据，描字类型（空心/虚线）对它没意义
-      const traceTip = Vue.computed(() =>
-        Number(form.font_type) === 2 ? '笔顺画的是笔画轮廓，描字类型不生效，切到「描字」才管用' : '');
+      const traceTip = Vue.computed(() => {
+        if (Number(form.font_type) === 2) return '笔顺是逐笔的轮廓 + 笔心线，十一档全部管用';
+        if (Z.traceVectorOnly(Z.traceOf(form.trace))) return '这一档要笔心线，字体整字做不出来，已经退成细虚线';
+        if (form.trace === 4) return '圆点：一串点沿笔心线摆出来，点的粗细跟着笔画肥瘦走';
+        return '';
+      });
       // 输入框里非汉字会被点出来，不静默吞掉
       const dropped = Vue.computed(() => {
         const raw = String(form.content || '').replace(/[\u4e00-\u9fa5\s，。、；：！？,.;:!?]/g, '');

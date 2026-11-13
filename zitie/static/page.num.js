@@ -10,7 +10,7 @@
     content: '0123456789',
     num_font: 'plain',  // plain 专用数字 / alpha 字母数字专用
     guide: 'tian',      // 见 Z.GUIDE_OPTIONS
-    trace: 1,           // 1 实心 2 空心 3 细虚线 4 描点
+    trace: 1,           // 见 Z.TRACE_OPTIONS，数字是矢量字形，十一档全支持
     cols: 12,           // 每行格数
     repeat_times: 12,   // 每个数字占几格（含第一个示范格）
     blank_row: 0,       // 每个数字后面留几行空白自己写
@@ -37,15 +37,20 @@
 
       const digitCount = Vue.computed(() => String(form.content || '').replace(/[^0-9]/g, '').length);
       // 描点那一档就是原站的「圆点画」，顺手把话说清楚
-      const traceTip = Vue.computed(() =>
-        Number(form.trace) === 4 ? '描点：一串点沿运笔线摆出来，点的粗细跟着笔画肥瘦走，照着点连起来就是字形' : '');
+      const TRACE_TIPS = {
+        4: '圆点：一串点沿运笔线摆出来，点的粗细跟着笔画肥瘦走，照着点连起来就是字形',
+        7: '擦除画：把笔画挖成白线，只剩轮廓和一条白心 —— 练的是笔尖走哪条道',
+        11: '浅底擦除：底下留一层很淡的轮廓，擦出来的白线一样清楚，但看得见字形',
+        10: '填充虚线：沿笔心线铺一条淡色带再压虚线，字有肉感，不是空架子',
+      };
+      const traceTip = Vue.computed(() => TRACE_TIPS[Number(form.trace)] || '');
 
       return {
         ...gen, form, doc, pages, items, generate, print, pageCount,
         digitCount, traceTip,
         numFonts: Z.NUM_FONTS.map((f) => ({ v: f.key, label: f.name })), guideOptions: Z.GUIDE_OPTIONS,
-        // 第四档在原站叫「圆点画」，这里直接叫描点 —— 用户就是这么说的
-        traceOptions: [{ v: 1, label: '实心' }, { v: 2, label: '空心' }, { v: 3, label: '细虚线' }, { v: 4, label: '描点' }],
+        // 数字是矢量字形，这套表原样搬过来即可
+        traceOptions: Z.TRACE_OPTIONS,
         footOptions: Z.FOOT_OPTIONS,
         borderColors: Z.BORDER_COLORS, inkColors: Z.INK_COLORS,
       };
@@ -107,7 +112,8 @@
           <div class="card">
             <div class="card-bd hint">
               数字不用字体文件画，走的是矢量字形（轮廓 + 运笔线），
-              所以能空心、能虚线、能描点，放大到 A3 也不糊。
+              所以十一档描字全都出得来，放大到 A3 也不糊。
+              空心、虚线靠轮廓描边；填充虚线、擦除画靠把笔心线剃进轮廓里。
             </div>
           </div>
         </aside>
