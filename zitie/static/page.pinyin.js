@@ -61,7 +61,7 @@
               </z-field>
 
               <z-field label="字体">
-                <z-fonts v-model="form.font_key" :fonts="fonts" sample="b p m f"></z-fonts>
+                <z-fonts v-model="form.font_key" :fonts="fonts"></z-fonts>
               </z-field>
 
               <z-field label="描字" tip="示范格永远实心深色，只改后面的练习格">

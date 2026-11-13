@@ -155,7 +155,7 @@
               </z-field>
 
               <z-field label="字体">
-                <z-fonts v-model="form.font_key" :fonts="fontOptions" sample="永字八法"></z-fonts>
+                <z-fonts v-model="form.font_key" :fonts="fontOptions"></z-fonts>
               </z-field>
 
               <z-field label="拼音" :tip="isStrip ? '笔顺条的拼音印在字头那一行里，不占格子' : ''">

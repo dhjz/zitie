@@ -82,7 +82,7 @@
               </z-field>
               <z-field label="列数"><z-seg v-model="form.cols" :options="colOptions"></z-seg></z-field>
               <z-field label="格型"><z-seg v-model="form.guide" :options="guideOptions"></z-seg></z-field>
-              <z-field label="字体"><z-fonts v-model="form.font_key" :fonts="fonts" sample="春眠不觉"></z-fonts></z-field>
+              <z-field label="字体"><z-fonts v-model="form.font_key" :fonts="fonts"></z-fonts></z-field>
               <z-field label="描字" tip="示范格永远是实心深色，只改整篇的练习格">
                 <z-seg v-model="form.trace" :options="traceOptions"></z-seg>
                 <div class="hint" v-if="traceTip">{{ traceTip }}</div>

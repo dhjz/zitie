@@ -80,18 +80,23 @@
       </div>`,
   };
 
-  // 字体：直接拿字体本身当预览
+  /* 字体：按钮上写的就是这款字体的名字（仿宋就写「仿宋」），
+     字号也不为它放大 —— 名字本身就是字，用不着再排一行样张。
+     font-family 用的是字体自己的族名列表（Zu.fontStack），不是 kaiti 这种内部键：
+     1MB 的中文字体还没下完、或者干脆下失败了，浏览器会退回系统里同名的字体，
+     界面上写的和眼睛看到的还是同一款字，不会白着一片让人猜。 */
   G.ZFonts = {
     name: 'ZFonts',
-    props: { modelValue: String, fonts: { type: Array, default: () => [] }, sample: { type: String, default: '永和九年' } },
+    props: { modelValue: String, fonts: { type: Array, default: () => [] } },
     emits: ['update:modelValue'],
     setup(props, { emit }) {
       // 字体文件按需拉：鼠标移上去（或已选中）才去下那个 1MB 的 woff2。
-      // 注意别在没用上之前就写 font-family —— 光声明就会让浏览器开始下载。
-      const loaded = Vue.reactive({});
-      const warm = (key) => window.Zu.ensureFont(key).then(() => { loaded[key] = true; });
+      // 按钮上那两个字本身就是预览，所以族名列表一直挂着 ——
+      // 写的是 '仿宋', 'FangSong'… 这种真名字，浏览器先用系统同名字体画，
+      // 字体文件到了再换。绝不写内部键（kaiti 那种），那才会触发下载。
+      const warm = (key) => window.Zu.ensureFont(key);
       const pick = (key) => { warm(key); emit('update:modelValue', key); };
-      const styleOf = (f) => (loaded[f.key] ? { fontFamily: f.key } : null);
+      const styleOf = (f) => ({ fontFamily: Z.fontStack(f.key) });
       Vue.onMounted(() => {
         props.fonts.forEach((f) => { if (f.eager || f.key === props.modelValue) warm(f.key); });
       });
@@ -103,7 +108,7 @@
       <div :class="cls">
         <button v-for="f in fonts" :key="f.key" type="button" class="chip font-chip"
           :class="{ on: modelValue === f.key }" :style="styleOf(f)"
-          :title="f.name" @mouseenter="warm(f.key)" @focus="warm(f.key)" @click="pick(f.key)">{{ sample }}</button>
+          :title="f.name" @mouseenter="warm(f.key)" @focus="warm(f.key)" @click="pick(f.key)">{{ f.name }}</button>
       </div>`,
   };
 
@@ -194,13 +199,16 @@
         Z.metricRev.n;
         const key = props.fontCss || 'kaiti';
         const m = Z.fontMetric(key);
-        // 字体里没有的字（生僻字）交给系统楷体，别掉到 serif 的宋体上去
+        // 字体里没有的字（生僻字）交给系统楷体，别掉到 serif 的宋体上去。
+        // fontStack 里已经带着同名系统字体兜底，字体文件没到也不会掉到宋体
         return {
-          family: `${key}, 'KaiTi', 'STKaiti', serif`,
+          family: Z.fontStack(key),
           size: 1024 * m.scale,
           y: 1024 * m.baseline,
         };
       });
+      // 兜底那行（笔顺分片没到时的 span）也要同一份族名列表
+      const fallbackFamily = computed(() => Z.fontStack(props.fontCss || 'kaiti'));
       /* 这一格到底怎么画。示范格（head）一律实心 —— 孩子得先看清字形。
          字体整字那条路只能描边，所以宽笔迹那几档就用 f* 那组近似值；
          真做不出来（填充虚线、擦除画）在页面上已经置灰，兜底给个细虚线。 */
@@ -246,7 +254,7 @@
       });
       // 裁切区要唯一 id：一页几十个格子，id 撞了后面全串味
       const uid = 'zc' + Math.random().toString(36).slice(2, 8);
-      return { paths, medians, dots, box, face, paint, strokePaths, uid };
+      return { paths, medians, dots, box, face, paint, strokePaths, uid, fallbackFamily };
     },
     // 数据坐标系是 y 轴向上的 1024 方格，翻一下才是字形
     template: `
@@ -290,7 +298,7 @@
             </g>
           </g>
         </svg>
-        <span v-else-if="ch" class="glyph-text" :style="{ color: ink, fontFamily: fontCss || 'kaiti' }">{{ ch }}</span>
+        <span v-else-if="ch" class="glyph-text" :style="{ color: ink, fontFamily: fallbackFamily }">{{ ch }}</span>
       </span>`,
   };
 
@@ -548,7 +556,9 @@
         return { w: THUMB_W, h: THUMB_H };
       });
 
-      return { conf, cells, box, W: THUMB_W, H: THUMB_H };
+      // 缩略图里的字体同样按族名列表来，别直传内部键
+      const fontCss = computed(() => (conf.value.font ? Z.fontStack(conf.value.font) : ''));
+      return { conf, cells, box, fontCss, W: THUMB_W, H: THUMB_H };
     },
     template: `
       <div class="thumb">
@@ -596,7 +606,7 @@
                 <line :x1="c.x" :x2="c.x + c.w" :y1="c.y + c.h * 0.72" :y2="c.y + c.h * 0.72" stroke="#d9e4ef" stroke-width="1" stroke-dasharray="3 3" />
               </template>
               <text v-if="c.t" :x="c.x + c.w / 2" :y="c.y + c.h / 2" text-anchor="middle" dominant-baseline="central"
-                class="th-glyph" :class="[conf.kind, c.ink, { small: c.small }]" :style="conf.font ? { fontFamily: conf.font } : null">{{ c.t }}</text>
+                class="th-glyph" :class="[conf.kind, c.ink, { small: c.small }]" :style="fontCss ? { fontFamily: fontCss } : null">{{ c.t }}</text>
             </template>
           </g>
         </svg>
@@ -702,6 +712,8 @@
     },
     setup(props) {
       const box = computed(() => `0 0 ${props.cellW} ${props.cellH}`);
+      // 字体键 -> CSS 族名列表：字体文件没到就先用系统同名字体顶着
+      const family = computed(() => Z.fontStack(props.fontKey || props.fontCss || 'shouxieti'));
       // 一处例外：长词（congratulation、zhuang）自己缩到格内，
       // 免得顶穿隔壁格 —— 但不能因为一个长词把整页的字都变小
       const fontSize = computed(() => {
@@ -729,7 +741,7 @@
           cap: em.cap || null,
         };
       });
-      return { box, fontSize, paint };
+      return { box, fontSize, paint, family };
     },
     template: `
       <div class="cell-en" :style="{ height: cellH + 'mm' }">
@@ -739,7 +751,7 @@
           <!-- viewBox 的单位就是 mm（跟格子同一套量纲），所以 font-size 直接写数字，
                1 个单位 = 1mm。size 由 Zu.enLayout 按字体度量反算。 -->
           <text v-if="cell.word" :x="cellW / 2" :y="base * cellH" text-anchor="middle"
-            :font-family="fontCss" :font-size="fontSize" :fill="paint.fill" :stroke="paint.stroke"
+            :font-family="family" :font-size="fontSize" :fill="paint.fill" :stroke="paint.stroke"
             :stroke-width="paint.w" :stroke-dasharray="paint.dash" :stroke-linecap="paint.cap">{{ cell.word }}</text>
         </svg>
       </div>`,
@@ -1004,7 +1016,7 @@
     // 页面已经在顶部 define 过就按它的 schema 来，没有就临时用这份 defaults。
     const form = reactive(Z.settings.init(key, defaults));
     // 删过字体之后，本地存的还是旧 key（比如 enitali），表单里会留一个空选项
-    if (defaults.font_key && !(Z.EN_FONTS.concat(Z.PY_FONTS, Z.ZH_FONTS).some((f) => f.key === form.font_key))) {
+    if (defaults.font_key && !Z.fontOf(form.font_key)) {
       form.font_key = defaults.font_key;
     }
     const doc = ref(null);
