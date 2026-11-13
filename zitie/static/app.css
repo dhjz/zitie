@@ -444,6 +444,25 @@ html.dark .thumb svg { filter: brightness(.93); }
     linear-gradient(to bottom right, transparent calc(50% - 0.4px), color-mix(in srgb, currentColor 42%, #fff) 50%, transparent calc(50% + 0.4px)),
     linear-gradient(to top right, transparent calc(50% - 0.4px), color-mix(in srgb, currentColor 42%, #fff) 50%, transparent calc(50% + 0.4px)); }
 
+/* 笔顺条的字头行：整字 + 拼音 + 一溜笔顺小图，跨整行（grid-column: 1 / -1）。
+   它自己不画格线，只压在上下两条横线中间 —— 跟下面那排描红格分开就行。 */
+.cell-cn.headbar {
+  grid-column: 1 / -1;
+  flex-direction: row; align-items: center; gap: 1.6mm;
+  padding: 1mm 2mm; overflow: hidden;
+}
+.hb-head { display: flex; align-items: center; gap: 1.2mm; flex: 0 0 auto; }
+/* 字和笔顺小图都得 relative：ZGlyph 内部是 absolute inset 定位，
+   最近的有定位的祖先是 .cell-cn，不加这一层，小图会撑到整行上去 */
+.hb-ch { position: relative; display: block; flex: 0 0 auto; }
+.hb-py {
+  font-family: pinyinok, serif; font-size: 15px; line-height: 1;
+  color: #444; letter-spacing: .5px; white-space: nowrap;
+}
+/* 笔顺小图：能排一行就一行，排不下让它自己换行（一页宽也就 12~13 格） */
+.hb-strokes { display: flex; flex-wrap: wrap; align-items: center; gap: .4mm; flex: 1 1 auto; min-width: 0; }
+.hb-stroke { position: relative; display: block; flex: 0 0 auto; }
+
 /* 方格：一个字一块，什么都不画 —— 练结构的时候线越少越好 */
 .cell-guide.fang { display: none; }
 
