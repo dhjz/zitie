@@ -1,0 +1,14 @@
+{
+  "name": "zitie",
+  "version": "1.0.0",
+  "private": true,
+  "description": "字帖工坊：纯前端字帖生成器。scripts/ 里是离线资源生成脚本，运行时不依赖 node。",
+  "scripts": {
+    "lite": "node scripts/lite.js",
+    "lite:check": "node scripts/lite.js --check"
+  },
+  "devDependencies": {
+    "fontmin": "^1.1.1",
+    "wawoff2": "^2.0.1"
+  }
+}

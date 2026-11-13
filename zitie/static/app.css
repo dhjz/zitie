@@ -61,14 +61,16 @@ a { color: inherit; text-decoration: none; }
 
 /* ---------------- 字体 ----------------
    中文字体一个 1MB 起步，6 个就是 11MB，首屏全下太亏。
-   这里只声明首屏要用的三款，其余在用户真的选中时才由
+   这里只声明首屏要用的两款，其余在用户真的选中时才由
    Zu.ensureFont() 用 FontFace 注入（见 utils.js）。
+
+   「楷体」那条不在这里：中文字体目录随 IS_LITE 切换（fonts/zh 或 fonts/zh_lite），
+   地址没法写死在 CSS 里，由 utils.js 按当前模式注入同一条 @font-face。
 
    族名一律用字体自己的名字（楷体 / 手写体 / 拼音体），别写成 kaiti 这种内部键。
    后面的 font-family 列表（Zu.fontStack）里还排着系统同名字体，
    所以这份 woff2 没到、或者下失败了，页面上写的和看到的也还是同一款字。 */
 @font-face { font-family: '拼音体'; src: url('./fonts/pinyin/pinyinok.woff2') format('woff2'); font-display: swap; }
-@font-face { font-family: '楷体'; src: url('./fonts/zh/kaiti.woff2') format('woff2'); font-display: swap; }
 @font-face { font-family: '手写体'; src: url('./fonts/en/shouxieti.woff2') format('woff2'); font-display: swap; }
 @font-face { font-family: pencontrol; src: url('./fonts/pen/PenControl.woff2') format('woff2'); font-display: block; }
 
