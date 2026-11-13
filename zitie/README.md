@@ -20,10 +20,10 @@ static/
   data/strokes_lite/ data/medians_lite/  精简版的同名分片（scripts/lite.js 生成）
   fonts/          中文六款、英文四款、拼音两款、控笔线条一套
   fonts/zh_lite/  精简版的中文字体子集
-scripts/
+scripts/          只有构建期用的东西，页面运行时不依赖 node
   lite.js         生成精简版资源
   common-chars.txt 常用字字表（3500）
-package.json      只放 scripts/lite.js 的构建依赖，运行时不依赖 node
+  package.json    构建依赖（fontmin、wawoff2），只为 lite.js 服务
 ```
 
 ## 加一个页面
@@ -393,11 +393,14 @@ window.IS_LITE = true;   // false = 完整版
 生成精简版资源（改过字表或换过字体之后重跑一次）：
 
 ```bash
-cd zitie
-npm install          # 只有 fontmin、wawoff2 两个依赖，装一次就够
-node scripts/lite.js         # 生成
-node scripts/lite.js --check # 只打印体积，不写文件
+cd zitie/scripts
+npm install  # 只有 fontmin、wawoff2 两个依赖，装一次就够
+node lite.js         # 生成
+node lite.js --check # 只打印体积，不写文件
 ```
+
+依赖装在 `scripts/` 里，不会在项目根目录留一个 `node_modules` —— `scripts/package.json`
+只服务于这几个脚本，页面运行时不依赖 node。
 
 脚本做三件事：
 

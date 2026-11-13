@@ -1,0 +1,14 @@
+{
+  "name": "zitie-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "zitie 的离线资源生成脚本（生成精简版数据）。仅构建期使用，页面运行时不依赖 node。",
+  "scripts": {
+    "lite": "node lite.js",
+    "lite:check": "node lite.js --check"
+  },
+  "devDependencies": {
+    "fontmin": "^1.1.1",
+    "wawoff2": "^2.0.1"
+  }
+}

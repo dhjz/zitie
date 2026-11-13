@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /* 生成「精简版」静态资源：只保留常用字的笔顺 / 笔心线与中文字体子集。
  *
- *   node scripts/lite.js            # 生成
- *   node scripts/lite.js --check    # 只核对覆盖率，不写文件
+ *   cd scripts && npm install      # 首次装依赖（fontmin、wawoff2）
+ *   node lite.js                   # 生成
+ *   node lite.js --check           # 只核对覆盖率，不写文件
  *
  * 产物（index.html 的 IS_LITE 打开后，前端就读这几个目录）：
  *   static/data/strokes_lite/<分片号>.js
@@ -123,7 +124,7 @@ async function buildFonts(keep) {
     fontmin = require('fontmin');
     wawoff2 = require('wawoff2');
   } catch (e) {
-    console.error('缺少依赖，先跑一次 npm install（fontmin、wawoff2）');
+    console.error('缺少依赖，先在 scripts/ 目录跑一次 npm install（fontmin、wawoff2）');
     throw e;
   }
   const srcDir = path.join(STATIC, 'fonts', 'zh');
