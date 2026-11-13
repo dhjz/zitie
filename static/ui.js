@@ -855,7 +855,7 @@
             :style="[gridStyle, { '--cell-line': doc.line }]">
             <template v-for="(c, i) in cells" :key="i">
               <z-cell-head v-if="c.kind === 'headbar'" :cell="c" :ink="doc.ink" :mode="doc.render || 'text'"
-                :font-css="fontCss" :bar-h="doc.pyH || 7.4"></z-cell-head>
+                :font-css="fontCss" :bar-h="doc.barH || doc.pyH || 7.4"></z-cell-head>
               <z-cell-cn v-else :cell="c" :pinyin="doc.pinyin"
                 :guide="doc.guide || 'tian'" :ink="doc.ink" :mode="doc.render || 'text'"
                 :trace="doc.trace || 'solid'" :py-style="doc.pyStyle || 'grid'"
