@@ -573,8 +573,13 @@ html.dark .thumb svg { filter: brightness(.93); }
      边距 12→10、卡片内边距 16/18→11/12、区块间距 16→10。
      触控目标也从 44 收到 36~38 —— 仍然好按，但一屏能多看两行设置。 */
   .wrap { padding: 10px 10px calc(66px + env(safe-area-inset-bottom)); }
-  .hero { padding: 20px 16px; margin-bottom: 12px; }
-  .hero h1 { font-size: 22px; margin-bottom: 8px; }
+  /* 手机上首页抬头只留标题 + 三个按钮：那段「纯前端生成 A4 字帖…」
+     两行变六行，一屏就被它吃掉，用户是来找入口的，不是来读介绍的。 */
+  .hero { padding: 16px 14px; margin-bottom: 10px; border-radius: var(--r); }
+  .hero h1 { font-size: 21px; margin-bottom: 10px; }
+  /* 只砍首页那段介绍，说明页的 hero-slim 里那句话是有用的 */
+  .hero:not(.hero-slim) p { display: none; }
+  .hero-tags { margin-top: 12px; }
   .hero-slim { padding: 18px 16px; }
   .hero-slim h1 { font-size: 19px; }
   .tile { padding: 13px 14px; border-radius: var(--r); }
@@ -583,7 +588,6 @@ html.dark .thumb svg { filter: brightness(.93); }
   .tile h4 { font-size: 14px; }
   .tile p { font-size: 12px; line-height: 1.55; }
   .empty { padding: 50px 16px; }
-  .hero p { font-size: 14px; margin-bottom: 16px; }
   .hero-actions { gap: 8px; }
   .hero-tags { margin-top: 14px; gap: 6px; }
   .hero-tags span { padding: 3px 8px; font-size: 11px; }
@@ -599,9 +603,18 @@ html.dark .thumb svg { filter: brightness(.93); }
   .field + .field { margin-top: 9px; }
   .field > label { font-size: 12px; padding-top: 8px; }
   .field-body { gap: 6px; }
-  .cards.feat { grid-template-columns: 1fr; gap: 10px; }
-  .tile.feat .tile-body { padding: 11px 13px 13px; }
-  .thumb { height: 150px; }
+  /* 首页功能卡在手机上排两列：八张卡一列铺下来要滑四五屏，
+     两列一屏半就能看全，缩略图里那点字样也还认得出是哪种字帖。 */
+  .cards.feat { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .tile.feat .tile-body { padding: 9px 10px 11px; gap: 4px; }
+  .tile.feat .tile-hd { gap: 7px; }
+  .tile.feat .tile-ico { width: 22px; height: 22px; border-radius: 8px; font-size: 12px; }
+  .tile.feat h4 { font-size: 13px; }
+  .tile.feat p { font-size: 11.5px; line-height: 1.45; }
+  .tile-go { font-size: 13px; }
+  /* 两列时卡片只有一百多像素宽，固定 150 高就成了竖长框，
+     slice 会把左右两列格子裁掉 —— 直接按画布比例定高，图完整不出血。 */
+  .thumb { height: auto; aspect-ratio: 8 / 5; }
   .hint { font-size: 11.5px; line-height: 1.5; }
 
   /* 顶栏两行：品牌 + 图标按钮占一行，导航独占一行。

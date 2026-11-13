@@ -499,33 +499,43 @@
       const conf = computed(() => THUMBS[props.kind] || THUMBS.hanzi);
 
       // 把 rows 摊成定位好的格子列表，模板只管遍历
+      // 整行格子的起点要按列数反算，格区才在纸面上左右对称 ——
+      // 写死 24 的话右边会多出一截空白，看着就是「没居中」
+      const rowX = (cols, w) => (THUMB_W - cols * w) / 2;
       const cells = computed(() => {
         const c = conf.value;
         const L = LAYOUTS[c.kind];
         const out = [];
+        if (c.kind === 'math') {
+          // 数学题一行两列，右边留横线当答案位
+          const colW = (THUMB_W - 48) / L.cols;
+          const x0 = rowX(L.cols, colW);
+          (c.rows || []).forEach((row, r) => {
+            row.forEach((t, i) => {
+              out.push({ x: x0 + i * colW, y: L.top + r * L.rowH, w: colW, h: L.rowH, t });
+            });
+          });
+          return out;
+        }
+        const w = c.kind === 'en' ? L.cellW : L.cell;
+        const h = c.kind === 'en' ? L.cellH : L.cell;
+        const x0 = rowX(L.cols, w);
         (c.rows || []).forEach((row, r) => {
           row.forEach((t, i) => {
             // 首格深色示范，其余淡红描红 —— 跟真字帖的档位一致
             const ink = !t ? '' : i === 0 ? 'head' : 'trace';
-            if (c.kind === 'cn') {
-              out.push({ x: 24 + i * L.cell, y: L.top + r * L.cell, w: L.cell, h: L.cell, t, ink, guide: c.guide });
-            } else if (c.kind === 'en') {
-              out.push({ x: 24 + i * L.cellW, y: L.top + r * L.cellH, w: L.cellW, h: L.cellH, t, ink, guide: c.guide, small: t.length > 2 });
+            const cell = { x: x0 + i * w, y: L.top + r * h, w, h, t, ink };
+            if (c.kind === 'en') {
+              cell.guide = c.guide;
+              cell.small = t.length > 2;
             } else if (c.kind === 'pen') {
-              out.push({ x: 24 + i * L.cell, y: L.top + r * L.cell, w: L.cell, h: L.cell, t });
+              cell.ink = ''; // 控笔纸上没有深色示范
+            } else {
+              cell.guide = c.guide;
             }
+            out.push(cell);
           });
         });
-        // 数学题单独一类：一行两列，右边留横线当答案位
-        if (c.kind === 'math') {
-          out.length = 0;
-          const colW = (THUMB_W - 48) / 2;
-          (c.rows || []).forEach((row, r) => {
-            row.forEach((t, i) => {
-              out.push({ x: 24 + i * colW, y: L.top + r * L.rowH, w: colW, h: L.rowH, t });
-            });
-          });
-        }
         return out;
       });
 
