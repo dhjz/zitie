@@ -59,7 +59,7 @@
                 <z-seg v-model="form.py_style" :options="pyStyles"></z-seg>
               </z-field>
               <z-field label="页数"><z-num v-model="form.num" :min="1" :max="30" suffix="张"></z-num></z-field>
-              <z-field label="页脚" tip="姓名 / 班级 / 日期">
+              <z-field label="页脚" tip="姓名和日期在顶栏齿轮里统一设，这儿只挑印哪几栏">
                 <z-seg v-model="form.foot" :options="footOptions"></z-seg>
               </z-field>
             </div>

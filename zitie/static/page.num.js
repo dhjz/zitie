@@ -99,7 +99,7 @@
                 <z-seg v-model="form.fix" :options="[{ v: 0, label: '不要' }, { v: 1, label: '要' }]"></z-seg>
               </z-field>
 
-              <z-field label="页脚" tip="姓名 / 班级 / 日期">
+              <z-field label="页脚" tip="姓名和日期在顶栏齿轮里统一设，这儿只挑印哪几栏">
                 <z-seg v-model="form.foot" :options="footOptions"></z-seg>
               </z-field>
             </div>

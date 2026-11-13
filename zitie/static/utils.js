@@ -78,6 +78,22 @@
     try { localStorage.setItem('zitie:' + key, JSON.stringify(value)); } catch {}
   };
 
+  /* ---------------- 全局设置（跨页面共用一份） ----------------
+     姓名、自动生成日期这种「每张纸都要印、但跟哪个页面无关」的东西放这儿，
+     不塞进各页的 form：一份存在 zitie:global，改一处全部页脚跟着变。
+     用 reactive 包着，设置弹窗里一改，已经挂着的 A4 预览立刻重画。 */
+  Z.GLOBAL_DEFAULTS = { name: '', auto_date: 0 };
+  // 真正的读写走 store.js 的 schema（导出、导入、恢复默认一并管），
+  // 这里只留一个空的 reactive 壳子给它填，页面读到的永远是同一份
+  Z.global = Vue.reactive(Object.assign({}, Z.GLOBAL_DEFAULTS));
+
+  // 页脚上印的日期：YYYY-MM-DD，跟导出配置的文件名一个习惯，好认
+  Z.today = () => {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  };
+
   /* ---------------- 主题 ---------------- */
   Z.THEME_KEY = 'zitie:theme';
   Z.theme = {
@@ -917,14 +933,31 @@
     return out.some((t) => t === 't') ? out : [];
   };
 
-  // 页脚 0 无 / 1 姓名日期 / 2 姓名班级日期
+  /* 页脚：0 不要 / 1 姓名日期 / 2 姓名班级日期 / 3 姓名 / 4 日期
+     1、2 是老存档里的编号，不能动 —— 换了号老用户一进页面页脚就错了。
+     新增的「只要姓名」「只要日期」排在后面，用 3、4。
+     列表按「不要 → 姓名 → 日期 → 两个都要 → 加上班级」排，读起来顺。 */
   Z.FOOT_OPTIONS = [
-    { v: 0, label: '不要' }, { v: 1, label: '姓名日期' }, { v: 2, label: '姓名班级日期' },
+    { v: 0, label: '不要' },
+    { v: 3, label: '姓名' },
+    { v: 4, label: '日期' },
+    { v: 1, label: '姓名日期' },
+    { v: 2, label: '姓名班级日期' },
   ];
+  // 姓名、日期取全局设置里那份：填了姓名就印出来，开了自动日期就印今天。
+  // 没填的仍是一条留白横线，打印出来手写 —— 交作业两种用法都有人要。
   Z.footOf = (v) => {
-    const n = Z.clamp(v, 0, 2);
-    if (!n) return null;
-    return { name: true, cls: n >= 2, date: true };
+    const n = Number(v) || 0;
+    if (!n || !Z.FOOT_OPTIONS.some((o) => o.v === n)) return null;
+    const name = String(Z.global.name || '').trim();
+    const date = Number(Z.global.auto_date) ? Z.today() : '';
+    return {
+      name: n === 1 || n === 2 || n === 3,
+      cls: n === 2,
+      date: n === 1 || n === 2 || n === 4,
+      nameText: name,
+      dateText: date,
+    };
   };
 
   // 订正格：每页尾部一行「改错」区，高度从版心里扣，所以页面照样是满版

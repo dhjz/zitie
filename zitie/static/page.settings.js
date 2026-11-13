@@ -13,6 +13,18 @@
     setup(props, { emit }) {
       const pages = Vue.ref([]);
       const fileInput = Vue.ref(null);
+      // 全局设置：姓名 + 自动日期开关。直接改 Z.global（reactive），
+      // 预览里的页脚跟着变，不用点保存 —— 跟别处的「改完自动保存」一个脾气。
+      const g = Z.global;
+      // 姓名输入防抖 300ms：Z.global 是 reactive，改一次页脚就重排一次，
+      // 逐字触发等于打字时整本字帖跟着抖，没必要
+      let nameTid = 0;
+      const nameInput = (e) => {
+        const v = e.target.value;
+        clearTimeout(nameTid);
+        nameTid = setTimeout(() => Z.settings.setGlobal({ name: v }), 300);
+      };
+      const toggleDate = () => Z.settings.setGlobal({ auto_date: Number(g.auto_date) ? 0 : 1 });
       const stats = Vue.computed(() => {
         const base = Z.settings.dump();
         return Object.keys(base.pages).reduce((n, k) => n + Object.keys(base.pages[k]).length, 0);
@@ -71,7 +83,7 @@
         if (v) pages.value = Z.settings.list();
       });
 
-      return { pages, fileInput, stats, close, exportJson, pick, onFile, reset };
+      return { pages, fileInput, stats, close, exportJson, pick, onFile, reset, g, nameInput, toggleDate };
     },
     template: `
       <div v-if="modelValue" class="modal no-print" @click.self="close">
@@ -85,13 +97,33 @@
           </div>
 
           <div class="modal-body set-body">
+            <!-- 全局设置：所有页面的页脚共用这一份，不用每页填一遍 -->
+            <div class="set-group-t">全局设置</div>
+            <div class="set-form">
+              <div class="set-row">
+                <span>姓名</span>
+                <input class="input set-input" :value="g.name" maxlength="12"
+                  placeholder="印在页脚，留空则手写" @input="nameInput" />
+              </div>
+              <div class="set-row">
+                <span>
+                  自动生成日期
+                  <span class="hint">打开后页脚印生成当天的日期</span>
+                </span>
+                <button class="switch" :class="{ on: Number(g.auto_date) }" role="switch"
+                  :aria-checked="!!Number(g.auto_date)" @click="toggleDate"><i></i></button>
+              </div>
+            </div>
+            <p class="hint">页脚放什么在各页面的「页脚」里选：只要姓名、只要日期、两个都要，或者加上班级。</p>
+
+            <div class="set-group-t">各页参数</div>
             <div class="set-list">
               <div v-for="p in pages" :key="p.key" class="set-row">
                 <span>{{ p.label }}</span>
                 <span class="hint">{{ p.count }} 项</span>
               </div>
             </div>
-            <p class="hint">导出会把这 {{ pages.length }} 个页面的配置和亮暗主题打包成一份 JSON，换台机器导入就还原。</p>
+            <p class="hint">导出会把这 {{ pages.length }} 个页面的配置、全局设置和亮暗主题打包成一份 JSON，换台机器导入就还原。</p>
           </div>
 
           <div class="modal-ft">
