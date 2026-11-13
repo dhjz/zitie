@@ -90,6 +90,10 @@ node lite.js --check  # 只核对覆盖率与体积
 
 ## 数据来源与许可
 
+本项目代码以 [MIT](LICENSE) 协议开源，可自由使用、修改、分发，保留版权声明即可。
+
+第三方资源各自保留原协议：
+
 - 笔顺数据来自 [makemeahanzi](https://github.com/skishore/makemeahanzi) / hanzi-writer-data，遵循 **Arphic Public License**
 - 拼音引擎 [pinyin-pro](https://github.com/zh-lx/pinyin-pro)，MIT
 - 其余代码为项目自身实现
