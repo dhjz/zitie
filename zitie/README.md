@@ -15,8 +15,15 @@ static/
   page.*.js       各功能页（自注册进 window.myComponents）
   collection.js   素材合集：弹窗、页签、方格点选与复制
   page.settings.js 设置弹窗：导出 / 导入 JSON、恢复默认
+  config.js       全局开关：IS_LITE（完整版 / 精简版）
   data/           笔顺数据、笔心线数据、拼音引擎、素材合集数据、课文生字表
+  data/strokes_lite/ data/medians_lite/  精简版的同名分片（scripts/lite.js 生成）
   fonts/          中文六款、英文四款、拼音两款、控笔线条一套
+  fonts/zh_lite/  精简版的中文字体子集
+scripts/          只有构建期用的东西，页面运行时不依赖 node
+  lite.js         生成精简版资源
+  common-chars.txt 常用字字表（3500）
+  package.json    构建依赖（fontmin、wawoff2），只为 lite.js 服务
 ```
 
 ## 加一个页面
@@ -361,6 +368,54 @@ size = (格高 - 0.3mm) / (asc + desc)     # 升部顶贴格顶、降部底贴�
   r 是「该点到本笔轮廓的最近距离」，离线算好存着 —— 原站是运行时用
   `getPointAtLength` 现算才要弹「正在生成圆点数据」，我们打开即用。
   取法：`Zu.mediansFor(字)` → `{ s: 笔心线, d: 描点 }`，分片没到返回 `null` 并自己补拉。
+
+## 精简版（IS_LITE）
+
+完整版带 6763 个 GB2312 字，笔顺 + 笔心线 + 中文字体一共 23MB。给中小学生用的话
+大半辈子也碰不到那些复杂字，所以另备一份「常用字版」：
+
+```js
+// static/config.js
+window.IS_LITE = true;   // false = 完整版
+```
+
+打开后只换三个目录，别处一行代码都不用动 —— 分片号算法（每 512 码位一片）没变，
+同一个字在两边永远是同一个文件名：
+
+| | 完整版 | 精简版 |
+|---|---|---|
+| 笔顺 | `static/data/strokes/` | `static/data/strokes_lite/` |
+| 笔心线 | `static/data/medians/` | `static/data/medians_lite/` |
+| 中文字体 | `static/fonts/zh/` | `static/fonts/zh_lite/` |
+
+体积：笔顺 7.1MB→3.5MB，笔心线 4.3MB→2.2MB，中文字体 10.6MB→5.6MB。
+
+生成精简版资源（改过字表或换过字体之后重跑一次）：
+
+```bash
+cd zitie/scripts
+npm install  # 只有 fontmin、wawoff2 两个依赖，装一次就够
+node lite.js         # 生成
+node lite.js --check # 只打印体积，不写文件
+```
+
+依赖装在 `scripts/` 里，不会在项目根目录留一个 `node_modules` —— `scripts/package.json`
+只服务于这几个脚本，页面运行时不依赖 node。
+
+脚本做三件事：
+
+1. **笔顺 / 笔心线按行过滤**。源文件一条记录一行、行首就是那个字，整行搬走，
+   base36 编码一个字节都不碰；一整片都不常用的话那个文件直接不生成。
+2. **中文字体取子集**。fontmin 的 glyph 插件只吃 ttf，所以先用 wawoff2 把 woff2
+   解开，取完子集再用 ttf2woff2 压回去。
+3. **字表**＝`scripts/common-chars.txt`（现代汉语常用字 3500）＋ 内置素材
+   （素材合集与课文生字表里出现过的字）＋ ASCII / 标点 / 拼音带调字母。
+   并上内置素材是必要的：默认内容「永和九年岁在癸丑」里的「癸」不在 3500 里，
+   光留 3500 的话一打开汉字页就是空格。
+
+部署时可以只留 `data/strokes_lite`、`data/medians_lite`、`fonts/zh_lite` 三个目录，
+`IS_LITE` 记得同时改成 `true` —— 它只决定去哪读，不做存在性探测；目录缺了不会报错，
+只在控制台点一句 404，页面表现为「有格子没字」。
 
 ## 控笔练习
 

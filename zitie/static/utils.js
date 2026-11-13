@@ -112,6 +112,23 @@
      字帖天然是「按需取字」：一次二三十个字。所以切成 41 个分片
      （每片 512 个码位），用到哪个字才去拉那一片 —— 首屏不付这个代价。
      数据以 window.ZU_SHARD(桶号, 文本) 的形式回来，见 static/data/strokes/。 */
+  /* 精简版（见 static/config.js 的 IS_LITE）：只收常用字的同名分片目录，
+     分片号算法不变，所以这里只是「换个目录读」，别处一行都不用改。 */
+  const IS_LITE = !!window.IS_LITE;
+  Z.IS_LITE = IS_LITE;
+  const STROKES_DIR = IS_LITE ? 'static/data/strokes_lite' : 'static/data/strokes';
+  const MEDIANS_DIR = IS_LITE ? 'static/data/medians_lite' : 'static/data/medians';
+
+  /* 精简版目录不存在时，页面会「一格一格空着」而不报错 —— 静默失败最难查，
+     所以第一次 404 就在控制台点一句，省得对着空白页猜。 */
+  let dirWarned = false;
+  function warnMissingDir(url) {
+    if (dirWarned) return;
+    dirWarned = true;
+    console.warn(`[字帖] ${url} 没加载到。IS_LITE = ${IS_LITE}，` +
+      `请确认对应目录存在，或用 node scripts/lite.js 生成精简版资源。`);
+  }
+
   const B36 = '0123456789abcdefghijklmnopqrstuvwxyz';
   const QUANT = 2; // 坐标量化步长，2/1024 em ≈ 0.03mm
   const SHARD_SIZE = 512;
@@ -144,8 +161,9 @@
     if (pending.has(no)) return pending.get(no);
     const p = new Promise((resolve) => {
       const el = document.createElement('script');
-      el.src = `static/data/strokes/${no}.js`;
-      el.onload = el.onerror = () => resolve();
+      el.src = `${STROKES_DIR}/${no}.js`;
+      el.onload = () => resolve();
+      el.onerror = () => { warnMissingDir(el.src); resolve(); };
       document.head.appendChild(el);
     });
     pending.set(no, p);
@@ -271,8 +289,9 @@
     if (mPending.has(no)) return mPending.get(no);
     const p = new Promise((resolve) => {
       const el = document.createElement('script');
-      el.src = `static/data/medians/${no}.js`;
-      el.onload = el.onerror = () => resolve();
+      el.src = `${MEDIANS_DIR}/${no}.js`;
+      el.onload = () => resolve();
+      el.onerror = () => { warnMissingDir(el.src); resolve(); };
       document.head.appendChild(el);
     });
     mPending.set(no, p);
@@ -626,13 +645,22 @@
      列表里第一个是中文/字体本名，后面跟着系统里同名字体，末尾是通用族兜底。
      这样 1MB 的中文字体还没下完时，页面先拿系统那款同名字体顶着，
      选「仿宋」就出仿宋，不会白着一片等下载。 */
+  /* 中文字体目录跟着 IS_LITE 走：精简版只有常用字的子集（scripts/lite.js 生成） */
+  const ZH_DIR = IS_LITE ? 'static/fonts/zh_lite' : 'static/fonts/zh';
+  /* 界面字（.th-glyph、订正行这些 CSS 里写死 '楷体' 的地方）等不到 FontFace 注入，
+     所以先在 <head> 里挂一条 @font-face，地址跟着上面的目录走。 */
+  (function declareKaiti() {
+    const el = document.createElement('style');
+    el.textContent = `@font-face { font-family: '楷体'; src: url('${ZH_DIR}/kaiti.woff2') format('woff2'); font-display: swap; }`;
+    document.head.appendChild(el);
+  })();
   Z.ZH_FONTS = [
-    { key: 'kaiti', name: '楷体', css: "'楷体', 'KaiTi', 'STKaiti', serif", url: 'static/fonts/zh/kaiti.woff2', eager: true },
-    { key: 'fangsong', name: '仿宋', css: "'仿宋', 'FangSong', 'STFangsong', '楷体', serif", url: 'static/fonts/zh/fangsong.woff2' },
-    { key: 'lishu', name: '隶书', css: "'隶书', 'LiSu', 'STLiti', '楷体', serif", url: 'static/fonts/zh/lishu.woff2' },
-    { key: 'xingkai', name: '行楷', css: "'行楷', 'STXingkai', '华文行楷', '楷体', serif", url: 'static/fonts/zh/xingkai.woff2' },
-    { key: 'pangzhonghua', name: '庞中华', css: "'庞中华', 'PangZhonghua', '楷体', serif", url: 'static/fonts/zh/pangzhonghua.woff2' },
-    { key: 'kaishu', name: '硬笔楷书', css: "'硬笔楷书', 'QXyingbikai', '楷体', serif", url: 'static/fonts/zh/kaishu.woff2' },
+    { key: 'kaiti', name: '楷体', css: "'楷体', 'KaiTi', 'STKaiti', serif", url: `${ZH_DIR}/kaiti.woff2`, eager: true },
+    { key: 'fangsong', name: '仿宋', css: "'仿宋', 'FangSong', 'STFangsong', '楷体', serif", url: `${ZH_DIR}/fangsong.woff2` },
+    { key: 'lishu', name: '隶书', css: "'隶书', 'LiSu', 'STLiti', '楷体', serif", url: `${ZH_DIR}/lishu.woff2` },
+    { key: 'xingkai', name: '行楷', css: "'行楷', 'STXingkai', '华文行楷', '楷体', serif", url: `${ZH_DIR}/xingkai.woff2` },
+    { key: 'pangzhonghua', name: '庞中华', css: "'庞中华', 'PangZhonghua', '楷体', serif", url: `${ZH_DIR}/pangzhonghua.woff2` },
+    { key: 'kaishu', name: '硬笔楷书', css: "'硬笔楷书', 'QXyingbikai', '楷体', serif", url: `${ZH_DIR}/kaishu.woff2` },
   ];
   Z.EN_FONTS = [
     { key: 'shouxieti', name: '手写体', css: "'手写体', 'ShouXieTi', cursive", url: 'static/fonts/en/shouxieti.woff2', eager: true },
