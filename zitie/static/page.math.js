@@ -15,6 +15,7 @@
     integer: 1,       // 结果为整数
     total: 60,
     position: 0,      // 0 常规（= 后填） 1 随机挖空
+    foot: 1,
     border_color: 'rgb(56, 152, 219)',
     font_color: 'rgb(84, 92, 104)',
   };
@@ -57,7 +58,7 @@
 
       return { ...gen, form, doc, pages, items, generate, print,
         typeOptions, rangeOptions, cipherOptions, countOptions, totalOptions, numRangeOptions,
-        customRange, rangeText, applyRange, showPlus,
+        customRange, rangeText, applyRange, showPlus, footOptions: Z.FOOT_OPTIONS,
         borderColors: Z.BORDER_COLORS, inkColors: Z.INK_COLORS };
     },
     template: `
@@ -88,6 +89,9 @@
               <z-field label="题量"><z-seg v-model="form.total" :options="totalOptions"></z-seg></z-field>
               <z-field label="填空">
                 <z-seg v-model="form.position" :options="[{ v: 0, label: '等号后' }, { v: 1, label: '随机' }]"></z-seg>
+              </z-field>
+              <z-field label="页脚" tip="姓名 / 班级 / 日期">
+                <z-seg v-model="form.foot" :options="footOptions"></z-seg>
               </z-field>
             </div>
 

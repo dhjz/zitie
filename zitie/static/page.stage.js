@@ -10,6 +10,9 @@
     font_key: 'kaiti',
     pinyin: 0,
     guide: 'tian',
+    trace: 1,
+    fix: 0,
+    foot: 1,
     cols: 12,
     border_color: 'rgb(56, 152, 219)',
     font_color: 'rgb(84, 92, 104)',
@@ -24,7 +27,9 @@
       const { form, doc, pages, items, generate, print } = gen;
       const charCount = Vue.computed(() => String(form.content || '').replace(/\s/g, '').length);
       const colOptions = [{ v: 8, label: '8 列' }, { v: 10, label: '10 列' }, { v: 12, label: '12 列' }, { v: 14, label: '14 列' }];
-      const guideOptions = [{ v: 'tian', label: '田字格' }, { v: 'mi', label: '米字格' }, { v: 'hui', label: '回宫格' }];
+      const guideOptions = Z.GUIDE_OPTIONS;
+      const traceOptions = Z.TRACE_OPTIONS;
+      const footOptions = Z.FOOT_OPTIONS;
 
       // 一年级课本里的常用篇目，点一下直接填进去
       const presets = [
@@ -36,7 +41,7 @@
       const usePreset = (p) => { form.content = p.text; generate(); };
 
       return { ...gen, form, doc, pages, items, generate, print,
-        charCount, colOptions, guideOptions, presets, usePreset,
+        charCount, colOptions, guideOptions, traceOptions, footOptions, presets, usePreset,
         fonts: Z.ZH_FONTS, borderColors: Z.BORDER_COLORS, inkColors: Z.INK_COLORS };
     },
     template: `
@@ -54,10 +59,16 @@
                 </div>
               </z-field>
               <z-field label="列数"><z-seg v-model="form.cols" :options="colOptions"></z-seg></z-field>
-              <z-field label="格线"><z-seg v-model="form.guide" :options="guideOptions"></z-seg></z-field>
+              <z-field label="格型"><z-seg v-model="form.guide" :options="guideOptions"></z-seg></z-field>
               <z-field label="字体"><z-fonts v-model="form.font_key" :fonts="fonts" sample="春眠不觉"></z-fonts></z-field>
               <z-field label="拼音">
                 <z-seg v-model="form.pinyin" :options="[{ v: 1, label: '有拼音' }, { v: 0, label: '无拼音' }]"></z-seg>
+              </z-field>
+              <z-field label="订正格" tip="每页底部留一行「改错」区">
+                <z-seg v-model="form.fix" :options="[{ v: 0, label: '不要' }, { v: 1, label: '要' }]"></z-seg>
+              </z-field>
+              <z-field label="页脚" tip="姓名 / 班级 / 日期">
+                <z-seg v-model="form.foot" :options="footOptions"></z-seg>
               </z-field>
             </div>
 

@@ -14,6 +14,7 @@
     size: 10,
     gap: 0,
     trace: 0,                       // 0 = 整行铺满；其它值是每行印几格
+    foot: 0,
     border_color: 'rgb(148, 160, 176)',
     trace_color: 'rgb(150, 180, 215)',
   };
@@ -96,6 +97,7 @@
         colsNow: Vue.computed(() => (doc.value ? doc.value.cols : 0)),
         borderColors: Z.BORDER_COLORS,
         traceColors: Z.PEN_TRACE_COLORS,
+        footOptions: Z.FOOT_OPTIONS,
       };
     },
     template: `
@@ -135,6 +137,9 @@
               </z-field>
               <z-field label="描红格数" tip="0 是整行都印；填 6 就是前 6 格印线，剩下的留白自己画">
                 <z-num v-model="form.trace" :min="0" :max="40" suffix="格"></z-num>
+              </z-field>
+              <z-field label="页脚" tip="姓名 / 班级 / 日期">
+                <z-seg v-model="form.foot" :options="footOptions"></z-seg>
               </z-field>
             </div>
 

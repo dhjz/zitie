@@ -11,6 +11,7 @@
     font_key: 'shouxieti',
     repeat_times: 10,
     blank_row: 1,
+    foot: 0,
     border_color: 'rgb(56, 152, 219)',
     font_color: 'rgb(255, 120, 120)',
   };
@@ -31,7 +32,7 @@
       const wordCount = Vue.computed(() =>
         (String(form.content || '').trim() ? String(form.content).split(/[\s,，|]+/).filter(Boolean).length : 0));
       return { ...gen, form, doc, pages, items, generate, print,
-        typeOptions, wordCount, fonts: Z.EN_FONTS, borderColors: Z.BORDER_COLORS, inkColors: Z.INK_COLORS };
+        typeOptions, wordCount, fonts: Z.EN_FONTS, footOptions: Z.FOOT_OPTIONS, borderColors: Z.BORDER_COLORS, inkColors: Z.INK_COLORS };
     },
     template: `
       <div class="split">
@@ -52,6 +53,9 @@
 
               <z-field label="重复"><z-num v-model="form.repeat_times" :min="1" :max="20" suffix="格"></z-num></z-field>
               <z-field label="空行"><z-num v-model="form.blank_row" :min="0" :max="5" suffix="行空白"></z-num></z-field>
+              <z-field label="页脚" tip="姓名 / 班级 / 日期">
+                <z-seg v-model="form.foot" :options="footOptions"></z-seg>
+              </z-field>
             </div>
 
             <div class="card-bd">
