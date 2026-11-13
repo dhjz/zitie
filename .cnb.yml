@@ -12,3 +12,26 @@ $:
           script: ls -al
         - name: merge
           script: wget -qO ~/dufs.tar.gz "https://cnb.cool/dhjzz/lib/-/git/raw/main/amd64/dufs.tar.gz" && tar -xzf ~/dufs.tar.gz -C /usr/local/bin && cp /usr/local/bin/dufs /usr/local/bin/fs
+
+# tag 名包含 git（如 v1.0-git）时，把 main 分支同步到 GitHub
+# 用 ** 而不是 *，这样 tag 名里带 / 也能命中
+"**git**":
+  tag_push:
+    - stages:
+        - name: sync main to github
+          # 引用密钥仓库文件，提供 GITHUB_USER / GITHUB_TOKEN
+          imports:
+            - https://cnb.cool/dhjzz/pwd/-/blob/main/env.yml
+          script: |
+            set -e
+            # tag 事件检出的是 detached HEAD，先把 main 的最新提交拉到本地引用
+            # 浅克隆时先补全历史，否则后面的分支引用不完整
+            git fetch --unshallow origin '+refs/heads/main:refs/remotes/origin/main' 2>/dev/null \
+              || git fetch origin '+refs/heads/main:refs/remotes/origin/main'
+            # 凭据走临时 credential store，避免 token 出现在命令行与日志里
+            cred_file=$(mktemp)
+            printf 'https://%s:%s@github.com\n' "$GITHUB_USER" "$GITHUB_TOKEN" > "$cred_file"
+            trap 'rm -f "$cred_file"' EXIT
+            git -c credential.helper="store --file=$cred_file" \
+              push https://github.com/dhjz/zitie.git \
+              refs/remotes/origin/main:refs/heads/main --force
