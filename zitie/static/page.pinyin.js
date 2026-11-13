@@ -9,6 +9,7 @@
     type: 1,
     font_key: 'pinyinok',
     content: '春眠不觉晓',
+    cols: 8,            // 每行格数：8 常规 / 10 密排，见 Z.PY_COLS_OPTIONS
     repeat_times: 6,
     blank_row: 1,
     foot: 0,
@@ -40,9 +41,10 @@
       const charCount = Vue.computed(() => Z.chars(form.content).length);
       // 拼音也是字体整字，只有描边那几档能用
       const traceOptions = Z.EN_TRACE_OPTIONS;
+      const colOptions = Z.PY_COLS_OPTIONS;
 
       return { ...gen, form, doc, pages, items, generate, print,
-        typeOptions, charCount, traceOptions, fonts: Z.PY_FONTS, footOptions: Z.FOOT_OPTIONS,
+        typeOptions, charCount, traceOptions, colOptions, fonts: Z.PY_FONTS, footOptions: Z.FOOT_OPTIONS,
         borderColors: Z.BORDER_COLORS, inkColors: Z.INK_COLORS };
     },
     template: `
@@ -64,6 +66,10 @@
 
               <z-field label="描字" tip="示范格永远实心深色，只改后面的练习格">
                 <z-seg v-model="form.trace" :options="traceOptions"></z-seg>
+              </z-field>
+
+              <z-field label="每行格数" tip="8 格一个音节占 22mm，10 格占 17.6mm；长音节（zhuang、ying）会自动缩一点塞进去">
+                <z-seg v-model="form.cols" :options="colOptions"></z-seg>
               </z-field>
 
               <z-field label="重复" tip="同一行铺几遍，铺满自动换行">

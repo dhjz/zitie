@@ -697,6 +697,28 @@
   Z.PEN_WIDTH = 184; // 控笔页可用宽度，左右各留 13mm 页边距
   Z.PY_H = 7.4; // 拼音行高度，跟 app.css 里的 .cell-py 对齐
 
+  /* 每行格数两档：12 格（常规）/ 13 格（密）。
+     纸张 210 宽，左右留 13mm 时版心只有 184 —— 塞 13 格每格 14.15mm，
+     比 12 格那档的 15mm 明显瘦，格子看着就「挤扁」了。
+     所以 13 档把左右页边距收到 10mm，版心 190，格区取 188：
+     188 / 13 = 14.46mm，正好落在 14.2~14.6 这个「跟 12 档差不离」的区间。
+     12 档仍是 180 / 12 = 15mm，老版面对齐，不去动它。 */
+  Z.COLS_OPTIONS = [
+    { v: 12, label: '12 格', tip: '常规密度：格子 15mm，不加减行时一页 17 行（带拼音行 11 行）' },
+    { v: 13, label: '13 格', tip: '密排：左右页边距收窄到 10mm，格区 188mm，格子 14.46mm' },
+  ];
+  // 拼音是整音节塞一格，12 列会把字压到 5mm 以下描不动，所以拼音页单独两档
+  Z.PY_COLS_OPTIONS = [
+    { v: 8, label: '8 格', tip: '常规密度，一音节一格 22mm' },
+    { v: 10, label: '10 格', tip: '密排，一音节一格 17.6mm，长音节（zhuang、ying）会自动缩一点' },
+  ];
+  Z.colsOf = (cols) => (Number(cols) >= 13 ? 13 : 12);
+  /* 格区宽度：12 档沿用原来的 180，13 档把左右页边距从 13mm 收到 10mm，
+     版心 184 → 190，格区取 188。188 / 13 = 14.46mm，
+     否则 180 / 13 = 13.85mm，比 12 档瘦一圈，格子就「压扁」了。 */
+  Z.gridWidthOf = (cols, base) => (Number(cols) >= 13 ? 188 : base || 180);
+  Z.padXOf = (cols) => (Number(cols) >= 13 ? 10 : 13);
+
   /* 一页能放几行、格子多高。
      先把行数取整，再把余量平摊回格子 —— 否则页面底部会空出一条白边，
      打印出来就是「上面挤、下面空」。 */
@@ -901,7 +923,7 @@
   Z.genHanzi = (form) => {
     const chars = Z.chars(form.content);
     if (!chars.length) return null;
-    const cols = 12;
+    const cols = Z.colsOf(form.cols);
     const pinyin = !!form.pinyin;
     const fixH = Z.fixH(form.fix);
     const grid = Z.gridFor(cols, 15, pinyin, fixH);
@@ -973,7 +995,7 @@
            描字帖走字体整字，只有描边那一类做得了，其余落回细虚线 */
         trace: Number(form.font_type) === 2 ? Z.traceOf(form.trace) : Z.fontTraceOf(form.trace),
         foot: Z.footOf(form.foot), fixH,
-        gridWidth: 180,
+        gridWidth: Z.gridWidthOf(cols), padX: Z.padXOf(cols),
       },
       pages: Z.paginateBlocks(blocks, perPage, () => cellCh('', '')),
     };
@@ -987,7 +1009,7 @@
   Z.PINYIN_SETS = { 1: SHENGMU, 2: YUNMU, 3: ZHENGTI };
 
   Z.genPinyin = (form) => {
-    const cols = 8;
+    const cols = Z.clamp(form.cols || 8, 6, 10) >= 10 ? 10 : 8;
     const grid = Z.gridFor(cols, 11, false);
     const { cellH, perPage } = grid;
     const blankRow = Z.clamp(form.blank_row, 0, 5);
@@ -1024,7 +1046,7 @@
       doc: {
         kind: 'en', title: form.title, cols, cellH, pinyin: false,
         guide: 'en', line: form.border_color, ink: form.font_color,
-        fontCss, gridWidth,
+        fontCss, gridWidth, padX: Z.padXOf(cols),
         // 拼音也是 <text>，能描边；笔心线那几档做不了，落到 solid
         trace: Z.fontTraceOf(form.trace),
         foot: Z.footOf(form.foot),
@@ -1037,17 +1059,35 @@
   /* 英文字帖
      type 'alphabet' 字母表 / 'word' 单词 */
   Z.genEnglish = (form) => {
-    const cols = 5;
+    const fontCss = form.font_key || 'shouxieti';
+    const blank = () => ({ word: '', head: false });
+    const blankRow = Z.clamp(form.blank_row, 0, 5);
+    const blocks = [];
+    const words = form.type === 'word'
+      ? String(form.content || '').split(/[\s,，|]+/).filter(Boolean)
+      : [];
+    if (form.type === 'word' && !words.length) return null;
+
+    /* 列数按最长的那个词反算，不再一律 5 列。
+       四线三格的字号只由格高决定（见 Z.enLayout），格宽只负责「放不放得下」：
+       老版固定 5 列，每格 35mm，可一个 Aa 才 8mm 宽，右边空掉四分之三 ——
+       这就是「英文格为什么这么宽」的答案。那份余量本来是给长单词留的，
+       字母表用不上，短词也用不上。
+
+       现在每格宽度 = 最长的词占的宽 + 2.4mm 呼吸位，夹在 15mm（跟汉字格同宽）
+       到 35mm（原来那档）之间；列数按它反算，余量再平摊回格子，整行铺满。
+       词太长（congratulation）时格子撑到上限，剩下的交给 ZCellEn 里那个
+       「长词自己缩字号」的兜底 —— 总不能为了一个词把整页列数砍到 2。 */
+    const probeH = Z.gridFor(12, 9, false).cellH; // 格高与列数无关，先探一次
+    const size = Z.enLayout(fontCss, 0, probeH).size;
+    const widest = words.reduce((a, b) => (Z.textEm(b, fontCss) > Z.textEm(a, fontCss) ? b : a), '');
+    const wantW = Z.clamp(Z.textEm(widest, fontCss) * size + 2.4, 15, 35);
+    const cols = words.length ? Z.clamp(Math.floor(Z.gridWidthOf(12) / wantW), 3, 12) : 12;
+    const gridWidth = Z.gridWidthOf(12);
     const grid = Z.gridFor(cols, 9, false);
     const { cellH, perPage } = grid;
-    const blankRow = Z.clamp(form.blank_row, 0, 5);
-    const fontCss = form.font_key || 'shouxieti';
-    const blocks = [];
-    const blank = () => ({ word: '', head: false });
 
     if (form.type === 'word') {
-      const words = String(form.content || '').split(/[\s,，|]+/).filter(Boolean);
-      if (!words.length) return null;
       const repeat = Z.clamp(form.repeat_times || 10, 1, 30);
       for (const w of words) {
         const block = [{ word: w, head: true }];
@@ -1066,12 +1106,11 @@
       }
     }
 
-    const gridWidth = 176;
     return {
       doc: {
         kind: 'en', title: form.title, cols, cellH, pinyin: false,
         guide: 'en', line: form.border_color, ink: form.font_color,
-        fontCss, gridWidth,
+        fontCss, gridWidth, padX: Z.padXOf(12),
         trace: Z.fontTraceOf(form.trace),
         foot: Z.footOf(form.foot),
         // 字号与两条内线由字体度量算（见 Z.enLayout），一页就一个字号
@@ -1143,7 +1182,7 @@
   Z.genNumber = (form) => {
     const digits = String(form.content || '').replace(/[^0-9]/g, '').split('');
     if (!digits.length) return null;
-    const cols = Z.clamp(form.cols || 12, 4, 20);
+    const cols = Z.colsOf(form.cols);
     const fixH = Z.fixH(form.fix);
     const grid = Z.gridFor(cols, 15, false, fixH);
     const { cellH, perPage } = grid;
@@ -1169,7 +1208,7 @@
         // 描点不是描边：那是沿笔画摆一串点，跟空心/虚线是两回事
         trace: Z.traceOf(form.trace),
         foot: Z.footOf(form.foot), fixH,
-        gridWidth: 180,
+        gridWidth: Z.gridWidthOf(cols), padX: Z.padXOf(cols),
       },
       pages: Z.paginateBlocks(blocks, perPage, () => blank()),
     };
@@ -1190,7 +1229,8 @@
   Z.genStage = (form) => {
     const text = String(form.content || '');
     if (!text.replace(/[\s□☐▢]/g, '')) return null;
-    const cols = Z.clamp(form.cols || 12, 6, 16);
+    // 文章页要窄列才好「一句一行」，所以 8/10 也留着，不像别的页只给 12/13
+    const cols = [8, 10, 12, 13].includes(Number(form.cols)) ? Number(form.cols) : 12;
     const pinyin = !!form.pinyin;
     const fixH = Z.fixH(form.fix);
     const grid = Z.gridFor(cols, 15, pinyin, fixH);
@@ -1235,7 +1275,7 @@
         render: 'text', // 整段文字只走字体，逐笔拆一整篇课文没有意义
         trace: Z.fontTraceOf(form.trace),
         foot: Z.footOf(form.foot), fixH,
-        gridWidth: 180,
+        gridWidth: Z.gridWidthOf(cols), padX: Z.padXOf(cols),
       },
       pages: Z.paginate(cells, perPage).map((p) =>
         // 文章页补满整版：抄写纸的格子就该是满的
@@ -1332,24 +1372,24 @@
   Z.genBlank = (form) => {
     const guide = form.guide || 'tian';
     const num = Z.clamp(form.num || 2, 1, 50);
+    const cols = Z.colsOf(form.cols);
+    const gridWidth = Z.gridWidthOf(cols);
     if (guide === 'en') {
-      const cols = 5;
       const grid = Z.gridFor(cols, 9, false);
       const { cellH, perPage } = grid;
       const page = Array.from({ length: perPage }, () => ({ word: '', head: false }));
       return {
         doc: {
           kind: 'en', title: form.title, cols, cellH, pinyin: false, guide: 'en',
-          line: form.border_color, ink: form.font_color, fontCss: 'shouxieti', gridWidth: 176,
-          foot: Z.footOf(form.foot),
+          line: form.border_color, ink: form.font_color, fontCss: 'shouxieti', gridWidth,
+          padX: Z.padXOf(cols), foot: Z.footOf(form.foot),
           // 空白纸虽然不写字，四条线也照同一个公式摆，写上去跟真字帖对得上
-          glyph: Z.enLayout('shouxieti', 176 / cols, cellH),
+          glyph: Z.enLayout('shouxieti', gridWidth / cols, cellH),
         },
         pages: Array.from({ length: num }, () => page),
       };
     }
     const pinyin = !!form.pinyin;
-    const cols = 12;
     const grid = Z.gridFor(cols, 15, pinyin);
     const { cellH, perPage } = grid;
     const page = Array.from({ length: perPage }, () => ({ ch: '', py: '', head: false }));
@@ -1357,7 +1397,7 @@
       doc: { kind: 'cn', title: form.title, cols, cellH, pinyin, pyH: Z.PY_H,
         pyStyle: Z.pyStyleOf(form.py_style), guide,
         line: form.border_color, ink: form.font_color, fontCss: 'kaiti', render: 'text',
-        foot: Z.footOf(form.foot), gridWidth: 180 },
+        foot: Z.footOf(form.foot), gridWidth, padX: Z.padXOf(cols) },
       pages: Array.from({ length: num }, () => page),
     };
   };

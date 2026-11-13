@@ -13,6 +13,7 @@
     pinyin: 1,
     guide: 'tian',      // 见 Z.GUIDE_OPTIONS
     trace: 1,           // 见 Z.TRACE_OPTIONS
+    cols: 12,           // 每行格数：12 常规 / 13 密排，见 Z.COLS_OPTIONS
     fill_row: 1,        // 每个字几行描字格
     blank_row: 1,       // 每个字几行空格
     row_pattern: '',    // 间隔描字：一行一个记号（描/空），填了就不看上面两个
@@ -51,6 +52,7 @@
         }));
       const footOptions = Z.FOOT_OPTIONS;
       const pyStyles = Z.PY_STYLES;
+      const colOptions = Z.COLS_OPTIONS;
 
       // 逐字注音：内容里出现过的字列出来，想改哪个改哪个。
       // 只存改过的（form.pinyin_fix），空着的还是走 pinyin-pro。
@@ -106,7 +108,7 @@
 
       return {
         ...gen, form, doc, pages, items, generate, print, pageCount,
-        fontOptions, guideOptions, traceOptions, footOptions, traceTip, pyStyles,
+        fontOptions, guideOptions, traceOptions, footOptions, traceTip, pyStyles, colOptions,
         charCount, dropped, strokeDisabled,
         editOpen, fixList, fixedCount, pyOf, setPy, resetPy,
         borderColors: Z.BORDER_COLORS, inkColors: Z.INK_COLORS,
@@ -130,6 +132,10 @@
                   { v: 2, label: '笔顺', disabled: strokeDisabled,
                     tip: strokeDisabled ? '笔顺是逐笔拆开的笔画轮廓，只能用楷体的笔画数据；描字才跟着字体走' : '逐笔演示笔顺' }
                 ]"></z-seg>
+              </z-field>
+
+              <z-field label="每行格数" tip="12 格是常规密度（格子 15mm）；13 格密排，左右页边距会收窄到 10mm，格子仍是 14.46mm">
+                <z-seg v-model="form.cols" :options="colOptions"></z-seg>
               </z-field>
 
               <z-field label="格型">

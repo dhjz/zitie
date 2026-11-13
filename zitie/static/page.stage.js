@@ -14,7 +14,7 @@
     trace: 1,           // 描字类型，见 Z.TRACE_OPTIONS；字体整字只做得了描边那一类
     fix: 0,
     foot: 1,
-    cols: 12,
+    cols: 12,           // 每行格数：8 / 10 / 12 / 13（13 档格区加宽到 188mm）
     border_color: 'rgb(56, 152, 219)',
     font_color: 'rgb(84, 92, 104)',
   };
@@ -29,8 +29,14 @@
     setup() {
       const gen = G.useGen('stage', DEFAULTS, Z.genStage, validate);
       const { form, doc, pages, items, generate, print } = gen;
+      // 老存档里还有 14 列（原来那档最宽的），现在换成 13；
+      // 8、10、12 照旧留着 —— 文章页本来就要窄列才好一句一行
+      if (Number(form.cols) === 14) form.cols = 13;
       const charCount = Vue.computed(() => String(form.content || '').replace(/\s/g, '').length);
-      const colOptions = [{ v: 8, label: '8 列' }, { v: 10, label: '10 列' }, { v: 12, label: '12 列' }, { v: 14, label: '14 列' }];
+      const colOptions = [
+        { v: 8, label: '8 格' }, { v: 10, label: '10 格' },
+        { v: 12, label: '12 格' }, { v: 13, label: '13 格', tip: '密排：左右页边距收窄到 10mm，格区 188mm，格子 14.46mm' },
+      ];
       const guideOptions = Z.GUIDE_OPTIONS;
       // 整段文字走字体整字（逐笔拆一整篇课文没意义），拿不到笔心线，
       // 所以填充虚线、擦除画这几档置灰
