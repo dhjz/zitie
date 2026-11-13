@@ -15,6 +15,9 @@
     trace: 1,           // 1 实心 2 空心 3 细虚线 4 圆点
     fill_row: 1,        // 每个字几行描字格
     blank_row: 1,       // 每个字几行空格
+    row_pattern: '',    // 间隔描字：一行一个记号（描/空），填了就不看上面两个
+    py_style: 'grid',   // 见 Z.PY_STYLES
+    pinyin_fix: {},     // 逐字改过的拼音：{ 字: 'pīn' }
     fix: 0,             // 每页尾部要不要一行订正格
     foot: 1,            // 0 无 / 1 姓名日期 / 2 姓名班级日期
     border_color: 'rgb(56, 152, 219)',
@@ -37,6 +40,42 @@
       const guideOptions = Z.GUIDE_OPTIONS;
       const traceOptions = Z.TRACE_OPTIONS;
       const footOptions = Z.FOOT_OPTIONS;
+      const pyStyles = Z.PY_STYLES;
+
+      // 逐字注音：内容里出现过的字列出来，想改哪个改哪个。
+      // 只存改过的（form.pinyin_fix），空着的还是走 pinyin-pro。
+      const editOpen = Vue.ref(false);
+      const fixList = Vue.computed(() => {
+        const seen = new Set();
+        const out = [];
+        const text = String(form.content || '');
+        // pinyinList 跟原串逐位对齐（标点位置是空串），下标直接拿来用
+        const pys = Z.pinyinList(text);
+        text.split('').forEach((ch, i) => {
+          if (!/[\u4e00-\u9fa5]/.test(ch) || seen.has(ch)) return;
+          seen.add(ch);
+          out.push({ ch, py: pys[i] || '' });
+        });
+        return out;
+      });
+      const fixedCount = Vue.computed(() => Object.keys(form.pinyin_fix || {}).length);
+      const pyOf = (ch, fallback) => {
+        const own = (form.pinyin_fix || {})[ch];
+        return own == null ? fallback : own;
+      };
+      const setPy = (ch, val) => {
+        const v = String(val || '').trim();
+        // 改回跟自动注音一样就等于没改，别在本地留一堆没用的键
+        const auto = (fixList.value.find((x) => x.ch === ch) || {}).py || '';
+        // Vue 3 去掉了 Vue.delete，reactive 对象直接 delete 就是响应式的
+        if (!v || v === auto) delete form.pinyin_fix[ch];
+        else form.pinyin_fix[ch] = v;
+        generate();
+      };
+      const resetPy = () => {
+        for (const k of Object.keys(form.pinyin_fix || {})) delete form.pinyin_fix[k];
+        generate();
+      };
       // 笔顺模式画的是笔画轮廓数据，描字类型（空心/虚线）对它没意义
       const traceTip = Vue.computed(() =>
         Number(form.font_type) === 2 ? '笔顺画的是笔画轮廓，描字类型不生效，切到「描字」才管用' : '');
@@ -54,8 +93,9 @@
 
       return {
         ...gen, form, doc, pages, items, generate, print, pageCount,
-        fontOptions, guideOptions, traceOptions, footOptions, traceTip,
+        fontOptions, guideOptions, traceOptions, footOptions, traceTip, pyStyles,
         charCount, dropped, strokeDisabled,
+        editOpen, fixList, fixedCount, pyOf, setPy, resetPy,
         borderColors: Z.BORDER_COLORS, inkColors: Z.INK_COLORS,
       };
     },
@@ -96,9 +136,34 @@
                 <z-seg v-model="form.pinyin" :options="[{ v: 1, label: '有拼音' }, { v: 0, label: '无拼音' }]"></z-seg>
               </z-field>
 
+              <z-field v-if="Number(form.pinyin)" label="拼音格">
+                <z-seg v-model="form.py_style" :options="pyStyles"></z-seg>
+              </z-field>
+
+              <z-field v-if="Number(form.pinyin)" label="逐字注音"
+                tip="pinyin-pro 也有判错的时候，这儿能一个个改回来">
+                <button class="btn btn-sm" @click="editOpen = !editOpen">
+                  {{ editOpen ? '收起' : '改拼音' }}<template v-if="fixedCount">（已改 {{ fixedCount }} 个）</template>
+                </button>
+                <div v-if="editOpen" class="fix-list">
+                  <div v-for="it in fixList" :key="it.ch" class="fix-item">
+                    <b>{{ it.ch }}</b>
+                    <input class="input fix-input" :value="pyOf(it.ch, it.py)"
+                      @change="setPy(it.ch, $event.target.value)" :placeholder="it.py" />
+                  </div>
+                  <button v-if="fixedCount" class="btn btn-sm" @click="resetPy">全部还原</button>
+                </div>
+              </z-field>
+
               <z-field label="行数" tip="每个字后面补几行描字格 / 空白格">
                 <z-num v-model="form.fill_row" :min="0" :max="5" suffix="行描字"></z-num>
                 <z-num v-model="form.blank_row" :min="0" :max="5" suffix="行空白"></z-num>
+              </z-field>
+
+              <z-field label="间隔描字"
+                tip="一行一个记号：描、空。比如「描描空」就是这个字印两行淡字再留一行自己写。填了就不看上面的行数">
+                <input class="input" v-model="form.row_pattern" maxlength="8" placeholder="例：描描空" />
+                <div class="hint">最多 8 行；留空则用上面的「几行描 + 几行空」</div>
               </z-field>
 
               <z-field label="订正格" tip="每页底部留一行「改错」区，高度从版心里扣，不多占纸张">

@@ -403,10 +403,13 @@
       mode: { type: String, default: 'text' }, fontCss: String,
       trace: { type: String, default: 'solid' },
       cellH: { type: Number, default: 15 }, pyH: { type: Number, default: 7.4 },
+      pyStyle: { type: String, default: 'grid' }, // grid 虚线格 / under 下划线 / paren 小括号 / box 长方格
     },
     template: `
       <div class="cell-cn" :style="{ minHeight: cellH + 'mm' }">
-        <div v-if="pinyin" class="cell-py" :style="{ height: pyH + 'mm' }"><span>{{ cell.py || '' }}</span></div>
+        <div v-if="pinyin" class="cell-py" :class="'py-' + pyStyle" :style="{ height: pyH + 'mm' }">
+          <span>{{ cell.py || '' }}</span>
+        </div>
         <div class="cell-ch" :style="{ minHeight: cellH + 'mm' }">
           <i class="cell-guide" :class="guide"></i>
           <z-glyph v-if="cell.ch" :ch="cell.ch" :ink="cell.head ? '#262c36' : ink"
@@ -524,7 +527,7 @@
             :style="[gridStyle, { '--cell-line': doc.line }]">
             <z-cell-cn v-for="(c, i) in cells" :key="i" :cell="c" :pinyin="doc.pinyin"
               :guide="doc.guide || 'tian'" :ink="doc.ink" :mode="doc.render || 'text'"
-              :trace="doc.trace || 'solid'"
+              :trace="doc.trace || 'solid'" :py-style="doc.pyStyle || 'grid'"
               :font-css="fontCss" :cell-h="doc.cellH || 15" :py-h="doc.pyH || 7.4"></z-cell-cn>
           </div>
           <div v-else-if="doc.kind === 'en'" class="grid-en" :style="[gridStyle, { '--cell-line': doc.line }]">
