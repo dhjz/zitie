@@ -61,12 +61,15 @@ a { color: inherit; text-decoration: none; }
 
 /* ---------------- 字体 ----------------
    中文字体一个 1MB 起步，6 个就是 11MB，首屏全下太亏。
-   这里只声明一个「楷体」当下限兜底，其余在用户真的选中时才由
-   Zu.ensureFont() 用 FontFace 注入（见 utils.js）。 */
-@font-face { font-family: pinyinok; src: url('./fonts/pinyin/pinyinok.woff2') format('woff2'); font-display: swap; }
-@font-face { font-family: kaiti; src: url('./fonts/zh/kaiti.woff2') format('woff2'); font-display: swap; }
-@font-face { font-family: shouxieti; src: url('./fonts/en/shouxieti.woff2') format('woff2'); font-display: swap; }
-/* 控笔线条：32 个图形的图标字体，4324 字节，没有理由按需加载 */
+   这里只声明首屏要用的三款，其余在用户真的选中时才由
+   Zu.ensureFont() 用 FontFace 注入（见 utils.js）。
+
+   族名一律用字体自己的名字（楷体 / 手写体 / 拼音体），别写成 kaiti 这种内部键。
+   后面的 font-family 列表（Zu.fontStack）里还排着系统同名字体，
+   所以这份 woff2 没到、或者下失败了，页面上写的和看到的也还是同一款字。 */
+@font-face { font-family: '拼音体'; src: url('./fonts/pinyin/pinyinok.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: '楷体'; src: url('./fonts/zh/kaiti.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: '手写体'; src: url('./fonts/en/shouxieti.woff2') format('woff2'); font-display: swap; }
 @font-face { font-family: pencontrol; src: url('./fonts/pen/PenControl.woff2') format('woff2'); font-display: block; }
 
 /* ---------------- 顶栏 ---------------- */
@@ -174,7 +177,9 @@ html.dark .seg button.on { background: var(--accent-soft); }
 .chip:hover { border-color: var(--line); color: var(--text); transform: translateY(-1px); }
 .chip.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 600; }
 .chip i { width: 12px; height: 12px; border-radius: 4px; display: block; }
-.chip.font-chip { font-size: 16px; padding: 4px 12px; }
+/* 字体按钮上写的是字体名本身（仿宋就是「仿宋」），字号不放大 ——
+   名字自己就是字，用不着再排样张；6 个名字一行还得放得下 */
+.chip.font-chip { font-size: 14px; padding: 5px 11px; }
 
 .input {
   width: 100%; padding: 9px 12px; border-radius: 11px;
@@ -213,7 +218,7 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.9; letter-sp
   display: flex; align-items: center; gap: 5px; padding: 4px 6px;
   background: var(--surface-2); border: 1px solid var(--line-soft); border-radius: 9px;
 }
-.fix-item b { font-family: kaiti, 'KaiTi', serif; font-size: 16px; font-weight: 500; }
+.fix-item b { font-family: '楷体', 'KaiTi', 'STKaiti', serif; font-size: 16px; font-weight: 500; }
 .fix-input { width: 74px; padding: 3px 6px; font-size: 13px; text-align: center; letter-spacing: 0; }
 
 .hint { font-size: 12px; color: var(--text-3); line-height: 1.6; }
@@ -310,8 +315,8 @@ textarea.pen-input {
 /* 暗色下纸本身还是纸，但别把屏幕照得刺眼 */
 html.dark .thumb svg { filter: brightness(.93); }
 .th-title { font-size: 9px; font-weight: 600; fill: #2b3340; letter-spacing: .6px; }
-.th-glyph { font-family: kaiti, serif; font-size: 22px; }
-.th-glyph.en { font-family: pinyinok, serif; font-size: 18px; }
+.th-glyph { font-family: '楷体', 'KaiTi', serif; font-size: 22px; }
+.th-glyph.en { font-family: '拼音体', serif; font-size: 18px; }
 .th-glyph.en.small { font-size: 13px; }
 .th-glyph.small { font-size: 12px; }
 .th-glyph.head { fill: #2b3340; }
@@ -406,7 +411,7 @@ html.dark .thumb svg { filter: brightness(.93); }
   height: 7.4mm; border-bottom: 1px dashed color-mix(in srgb, currentColor 55%, #fff);
   display: grid; place-items: center; position: relative;
 }
-.cell-py span { font-family: pinyinok, serif; font-size: 16px; line-height: 1; color: #444; letter-spacing: .5px; }
+.cell-py span { font-family: '拼音体', serif; font-size: 16px; line-height: 1; color: #444; letter-spacing: .5px; }
 /* 拼音行样式四档。作业本上见过的就这几种，格子本身不动，只换那条线的画法：
    grid 虚线格（默认，整行一条虚线当底）；under 下划线（离字远一点）；
    paren 小括号（左右各一撇，一音节一组）；box 长方格（左右各一条竖线）。 */
@@ -459,7 +464,7 @@ html.dark .thumb svg { filter: brightness(.93); }
    最近的有定位的祖先是 .cell-cn，不加这一层，小图会撑到整行上去 */
 .hb-ch { position: relative; display: block; flex: 0 0 auto; }
 .hb-py {
-  font-family: pinyinok, serif; font-size: 15px; line-height: 1;
+  font-family: '拼音体', serif; font-size: 15px; line-height: 1;
   color: #444; letter-spacing: .5px; white-space: nowrap;
 }
 /* 笔顺小图：能排一行就一行，排不下让它自己换行（一页宽也就 12~13 格） */
@@ -658,7 +663,7 @@ html.dark .thumb svg { filter: brightness(.93); }
   .seg { padding: 2px; border-radius: 10px; }
   .seg button { min-height: 34px; padding: 6px 10px; font-size: 13px; border-radius: 8px; }
   .chip { min-height: 34px; padding: 4px 10px; font-size: 13px; }
-  .chip.font-chip { min-height: 36px; padding: 2px 10px; font-size: 15px; }
+  .chip.font-chip { min-height: 36px; padding: 2px 10px; font-size: 13px; }
   .icon-btn { width: 36px; height: 36px; border-radius: 9px; font-size: 14px; }
   .btn { min-height: 34px; padding: 6px 8px; border-radius: 10px; font-size: 13px; }
   .btn-sm { min-height: 32px; padding: 5px 10px; }
@@ -819,7 +824,7 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 6px; font-
 /* 预览用汉字间距拉开 —— 生字表挤成一坨看不清是哪些字 */
 .col-item-text {
   margin-top: 8px; font-size: 13px; line-height: 1.9; color: var(--text-2);
-  letter-spacing: 1.5px; font-family: kaiti, 'KaiTi', serif;
+  letter-spacing: 1.5px; font-family: '楷体', 'KaiTi', 'STKaiti', serif;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 /* 方格视图：正文摊成一个个紧凑小方格，点一下高亮、再点取消。
@@ -881,7 +886,7 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 6px; font-
   /* 定宽定高才排得整齐：楷体各字宽不一样，flex 一撑就参差 */
   width: 30px; height: 30px; flex: 0 0 auto;
   display: grid; place-items: center;
-  font-family: kaiti, 'KaiTi', serif; font-size: 19px; line-height: 1;
+  font-family: '楷体', 'KaiTi', 'STKaiti', serif; font-size: 19px; line-height: 1;
   color: var(--text); background: var(--surface);
   border: 1px solid var(--line-soft); border-radius: 6px;
   transition: background .12s, border-color .12s, color .12s;

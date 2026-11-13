@@ -378,9 +378,10 @@
     try { ctx = document.createElement('canvas').getContext('2d'); } catch { return null; }
     if (!ctx) return null;
     // FontFace 是动态注入的，不显式 load 一次，量到的是回退字体
-    try { await document.fonts.load(`1000px ${key}`); } catch {}
+    const stack = Z.fontStack(key);
+    try { await document.fonts.load(`1000px ${stack}`); } catch {}
     const SIZE = 1000;
-    ctx.font = `${SIZE}px ${key}, serif`;
+    ctx.font = `${SIZE}px ${stack}`;
     const hs = [], ws = [], mids = [];
     for (const ch of PROBE) {
       const t = ctx.measureText(ch);
@@ -619,25 +620,40 @@
     { name: '淡黑', value: 'rgb(214, 216, 220)' },
   ];
   Z.DARK = 'rgb(38, 44, 54)';
+  /* 每款字体都按「它自己的名字」挂进 CSS：name 是界面上显示的名字，
+     css 是 font-family 列表，头一个就是 FontFace 注入用的族名。
+     所以渲染侧一律走 Z.fontStack(key)，别处不要再写死 kaiti / pinyinok 这种内部键 ——
+     列表里第一个是中文/字体本名，后面跟着系统里同名字体，末尾是通用族兜底。
+     这样 1MB 的中文字体还没下完时，页面先拿系统那款同名字体顶着，
+     选「仿宋」就出仿宋，不会白着一片等下载。 */
   Z.ZH_FONTS = [
-    { key: 'kaiti', name: '楷体', url: 'static/fonts/zh/kaiti.woff2', eager: true },
-    { key: 'fangsong', name: '仿宋', url: 'static/fonts/zh/fangsong.woff2' },
-    { key: 'lishu', name: '隶书', url: 'static/fonts/zh/lishu.woff2' },
-    { key: 'xingkai', name: '行楷', url: 'static/fonts/zh/xingkai.woff2' },
-    { key: 'pangzhonghua', name: '庞中华', url: 'static/fonts/zh/pangzhonghua.woff2' },
-    { key: 'kaishu', name: '硬笔楷书', url: 'static/fonts/zh/kaishu.woff2' },
+    { key: 'kaiti', name: '楷体', css: "'楷体', 'KaiTi', 'STKaiti', serif", url: 'static/fonts/zh/kaiti.woff2', eager: true },
+    { key: 'fangsong', name: '仿宋', css: "'仿宋', 'FangSong', 'STFangsong', '楷体', serif", url: 'static/fonts/zh/fangsong.woff2' },
+    { key: 'lishu', name: '隶书', css: "'隶书', 'LiSu', 'STLiti', '楷体', serif", url: 'static/fonts/zh/lishu.woff2' },
+    { key: 'xingkai', name: '行楷', css: "'行楷', 'STXingkai', '华文行楷', '楷体', serif", url: 'static/fonts/zh/xingkai.woff2' },
+    { key: 'pangzhonghua', name: '庞中华', css: "'庞中华', 'PangZhonghua', '楷体', serif", url: 'static/fonts/zh/pangzhonghua.woff2' },
+    { key: 'kaishu', name: '硬笔楷书', css: "'硬笔楷书', 'QXyingbikai', '楷体', serif", url: 'static/fonts/zh/kaishu.woff2' },
   ];
   Z.EN_FONTS = [
-    { key: 'shouxieti', name: '手写体', url: 'static/fonts/en/shouxieti.woff2', eager: true },
-    { key: 'segoeprint', name: 'Segoe Print', url: 'static/fonts/en/SegoePrint.woff2' },
-    { key: 'blokletterspotlood', name: 'Blokletters', url: 'static/fonts/en/BloklettersPotlood.woff2' },
-    { key: 'myriadpro', name: 'Myriad Pro', url: 'static/fonts/en/MyriadProLightSemiExtIt.woff2' },
+    { key: 'shouxieti', name: '手写体', css: "'手写体', 'ShouXieTi', cursive", url: 'static/fonts/en/shouxieti.woff2', eager: true },
+    { key: 'segoeprint', name: 'Segoe Print', css: "'Segoe Print', cursive", url: 'static/fonts/en/SegoePrint.woff2' },
+    { key: 'blokletterspotlood', name: 'Blokletters', css: "'Blokletters', 'Blokletters Potlood', cursive", url: 'static/fonts/en/BloklettersPotlood.woff2' },
+    { key: 'myriadpro', name: 'Myriad Pro', css: "'Myriad Pro', 'Myriad Pro Light SemiExt', sans-serif", url: 'static/fonts/en/MyriadProLightSemiExtIt.woff2' },
   ];
   /* 拼音字体只带小写字母和带调元音，几 KB，索性都预加载 */
   Z.PY_FONTS = [
-    { key: 'pinyinok', name: '拼音体', url: 'static/fonts/pinyin/pinyinok.woff2', eager: true },
-    { key: 'pinyin', name: '拼音黑体', url: 'static/fonts/pinyin/Pinyin.woff2', eager: true },
+    { key: 'pinyinok', name: '拼音体', css: "'拼音体', 'GB Pinyinok-B', serif", url: 'static/fonts/pinyin/pinyinok.woff2', eager: true },
+    { key: 'pinyin', name: '拼音黑体', css: "'拼音黑体', '拼音', sans-serif", url: 'static/fonts/pinyin/Pinyin.woff2', eager: true },
   ];
+  Z.ALL_FONTS = Z.ZH_FONTS.concat(Z.EN_FONTS, Z.PY_FONTS);
+  Z.fontOf = (key) => Z.ALL_FONTS.find((f) => f.key === key);
+  /* 渲染一律走这个：拿到的是 CSS font-family 列表，不是内部键 */
+  Z.fontStack = (key) => {
+    const m = Z.fontOf(key);
+    return m ? m.css : `${key || 'sans-serif'}, sans-serif`;
+  };
+  /* FontFace 只认单个族名，取列表第一个、去掉引号 */
+  Z.fontFamily = (key) => String(Z.fontStack(key)).split(',')[0].trim().replace(/^['"]|['"]$/g, '');
 
   /* 六款英文/拼音字体的字形度量，千分之一 em，从 woff2 里逐字量出来的：
      asc 升部顶（大写、b d f h k l 的上沿，拼音字体连声调符号一起算）、
@@ -720,9 +736,9 @@
   const fontLoaded = new Map();
   Z.ensureFont = (key) => {
     if (fontLoaded.has(key)) return fontLoaded.get(key);
-    const meta = Z.ZH_FONTS.concat(Z.EN_FONTS, Z.PY_FONTS).find((f) => f.key === key);
+    const meta = Z.fontOf(key);
     if (!meta || !window.FontFace) return Promise.resolve();
-    const done = new FontFace(key, `url(${meta.url})`, { display: 'swap' })
+    const done = new FontFace(Z.fontFamily(key), `url(${meta.url})`, { display: 'swap' })
       .load()
       .then((face) => { document.fonts.add(face); })
       .catch(() => {});
