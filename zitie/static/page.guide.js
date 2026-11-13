@@ -40,8 +40,8 @@
     },
     template: `
       <div style="max-width:900px;margin:0 auto">
-        <section class="hero" style="padding:34px 32px">
-          <h1 style="font-size:27px">打印前花 60 秒看这页</h1>
+        <section class="hero hero-slim">
+          <h1>打印前花 60 秒看这页</h1>
           <p style="margin:0">字帖废掉的九成原因不是内容，是打印设置。下面几条照做，毫米级对齐。</p>
         </section>
 
