@@ -1072,7 +1072,7 @@
     const pinyin = !strip && !!form.pinyin;
     const fixH = Z.fixH(form.fix);
     const grid = Z.gridFor(cols, 15, pinyin, fixH);
-    const { cellH, perPage } = grid;
+    const { cellH, rows, perPage } = grid;
     const fillRow = Z.clamp(form.fill_row, 0, 5);
     const blankRow = Z.clamp(form.blank_row, 0, 5);
     // 整段一起注音，多音字才判得准。pinyinList 跟原串逐位对齐（标点处是空串），
@@ -1094,8 +1094,13 @@
     // 填了模式就按模式逐行排，没填才用「几行描 + 几行空」。
     // 笔顺帖一格里是一笔，模式那种「一行整字」跟它不是一个东西，不掺和。
     const pattern = fontType === 2 ? [] : Z.parseRowPattern(form.row_pattern);
-    // 字头行跨整行，分页时得按一整行算（见 Z.paginateBlocks 的 weight）
-    const weight = (c) => (c.kind === 'headbar' ? cols : 1);
+    /* 分页单位还是「一格」，但字头行只按它实际占的高度折算。
+       字头行只有拼音行那么高，还按一整格算等于当 15mm 用，
+       一页白白少排两块，纸底下就空出一大片白。
+       折算：一格 = rowMm / cols 毫米，字头 = rowHd 毫米 → headUnits 格。 */
+    const rowMm = cellH + 0.3;                    // 一行（含边框）多高
+    const headUnits = Math.min(cols, Math.round((Z.PY_H + 0.3) / rowMm * cols * 100) / 100);
+    const weight = (c) => (c.kind === 'headbar' ? headUnits : 1);
 
     // 笔顺条的描红行：一行一行的整字，第一行第一格深色示范（跟别的格式一个规矩）
     const stripRows = (block, ch) => {
@@ -1158,6 +1163,19 @@
       blocks.push(block);
     }
 
+    /* 末页按整行空白补齐：一页就该是一整版格子，不能印出半页白纸。
+       剩下不到一行的零头不补 —— 那点白就是纸的下边距。 */
+    function fillPages(pages) {
+      for (const p of pages) {
+        let left = perPage - p.reduce((n, c) => n + weight(c), 0);
+        while (left >= cols) {
+          for (let i = 0; i < cols; i++) p.push(blank());
+          left -= cols;
+        }
+      }
+      return pages;
+    }
+
     return {
       doc: {
         kind: 'cn', title: form.title, cols, cellH, pinyin, pyH: Z.PY_H,
@@ -1174,7 +1192,7 @@
            它只是个提示条，不该抢格子的位置 */
         barH: strip ? Z.PY_H : 0,
       },
-      pages: Z.paginateBlocks(blocks, perPage, () => cellCh('', ''), weight),
+      pages: fillPages(Z.paginateBlocks(blocks, perPage, null, weight)),
     };
   };
 
