@@ -375,6 +375,8 @@ html.dark .thumb svg { filter: brightness(.93); }
    没开页脚时页码还是居中（跟以前一样），开了就压到右边，别跟姓名挤 */
 .foot-fields { display: flex; gap: 7mm; color: #56637a; font-size: 11px; }
 .foot-fields i { display: inline-block; width: 22mm; border-bottom: 1px solid #c6cfdc; height: 3.2mm; }
+/* 全局设置里填了姓名 / 开了自动日期，就直接印字；字比横线长的时候别把后一栏挤跑 */
+.foot-fields b { font-weight: 500; color: #3b4658; border-bottom: 1px solid #dbe2ec; padding: 0 2mm; max-width: 46mm; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; display: inline-block; vertical-align: bottom; }
 .foot-page { position: absolute; right: 0; bottom: 0; }
 
 /* 订正格：每页尾巴上一行「改错」区。
@@ -935,3 +937,23 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 6px; font-
   background: var(--surface-2); border: 1px solid var(--line-soft); font-size: 13px;
 }
 .set-row .hint { font-size: 12px; }
+/* 设置弹窗分两段：上面是跨页共用的全局项，下面是各页参数的清单 */
+.set-group-t {
+  font-size: 12px; font-weight: 600; color: var(--text-2); letter-spacing: .6px;
+  margin: 0 0 6px 2px;
+}
+.set-form { display: grid; gap: 6px; margin-bottom: 8px; }
+.set-input { width: 132px; text-align: left; padding: 6px 10px; font-size: 13px; }
+/* 开关：一个圆角槽 + 一颗会走的圆点，比原生 checkbox 在这排里好看点 */
+.switch {
+  width: 42px; height: 24px; flex: 0 0 auto; border-radius: 999px; padding: 2px;
+  background: var(--line-soft); border: 1px solid var(--line-soft);
+  display: flex; align-items: center; transition: background .16s, border-color .16s;
+}
+.switch i {
+  width: 18px; height: 18px; border-radius: 50%; background: #fff;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, .24);
+  transform: translateX(0); transition: transform .18s cubic-bezier(.3, .8, .4, 1);
+}
+.switch.on { background: var(--accent); border-color: var(--accent); }
+.switch.on i { transform: translateX(18px); }

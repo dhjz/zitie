@@ -869,9 +869,10 @@
         <div class="sheet-ft">
           <!-- 页脚：学生交作业得写名字，纸上没地方写就得手抄一行 -->
           <div v-if="doc.foot" class="foot-fields">
-            <span v-if="doc.foot.name">姓名：<i></i></span>
+            <!-- 全局设置里填了姓名 / 开了自动日期就直接印出来，没填的仍留横线手写 -->
+            <span v-if="doc.foot.name">姓名：<b v-if="doc.foot.nameText">{{ doc.foot.nameText }}</b><i v-else></i></span>
             <span v-if="doc.foot.cls">班级：<i></i></span>
-            <span v-if="doc.foot.date">日期：<i></i></span>
+            <span v-if="doc.foot.date">日期：<b v-if="doc.foot.dateText">{{ doc.foot.dateText }}</b><i v-else></i></span>
           </div>
           <span v-if="pageTotal > 1" class="foot-page">第 {{ pageNo }} / {{ pageTotal }} 页</span>
         </div>
@@ -1041,6 +1042,12 @@
     Vue.onMounted(() => {
       if (mpane.pane !== 'form') setPane('form');
       generate();
+    });
+
+    /* 全局设置（姓名、自动日期）不在 form 里，但页脚是排版时算进 doc 的，
+       所以在设置弹窗里改了它，得让挂着的预览也重排一次。 */
+    watch(() => [Z.global.name, Z.global.auto_date], () => {
+      if (doc.value || pages.value.length) generate();
     });
 
     // 参数一变就重排：本地计算，几毫秒的事，比点按钮顺手。

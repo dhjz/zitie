@@ -141,7 +141,7 @@
               <z-field label="描红格数" tip="0 是整行都印；填 6 就是前 6 格印线，剩下的留白自己画">
                 <z-num v-model="form.trace" :min="0" :max="40" suffix="格"></z-num>
               </z-field>
-              <z-field label="页脚" tip="姓名 / 班级 / 日期">
+              <z-field label="页脚" tip="姓名和日期在顶栏齿轮里统一设，这儿只挑印哪几栏">
                 <z-seg v-model="form.foot" :options="footOptions"></z-seg>
               </z-field>
             </div>
