@@ -743,10 +743,17 @@
         const w = Math.round(((props.doc.gridWidth || 176) / cols.value) * 100) / 100;
         return props.doc.glyph || window.Zu.enLayout(props.doc.fontCss, w, props.doc.cellH || 9);
       });
-      return { cols, gridStyle, fontCss, glyph };
+      /* 左右页边距跟着格区宽度走：13 格那档格区 188mm，左右各留 10mm 刚好；
+         12 格仍是 180 + 13mm，老版面对齐。纸张 210mm 不变，
+         所以「格区 + 两边留白 = 210」这一步在任何一档都成立。 */
+      const padStyle = computed(() => {
+        const x = props.doc.padX;
+        return x == null ? {} : { paddingLeft: x + 'mm', paddingRight: x + 'mm' };
+      });
+      return { cols, gridStyle, fontCss, glyph, padStyle };
     },
     template: `
-      <div class="sheet">
+      <div class="sheet" :style="padStyle">
         <div class="sheet-hd">
           <div class="sheet-title" :style="{ borderBottomColor: doc.line, color: doc.titleColor || '#2b3340' }">{{ doc.title || '字帖练习本' }}</div>
         </div>

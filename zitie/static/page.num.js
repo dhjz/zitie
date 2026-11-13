@@ -11,7 +11,7 @@
     num_font: 'plain',  // plain 专用数字 / alpha 字母数字专用
     guide: 'tian',      // 见 Z.GUIDE_OPTIONS
     trace: 1,           // 见 Z.TRACE_OPTIONS，数字是矢量字形，十一档全支持
-    cols: 12,           // 每行格数
+    cols: 12,           // 每行格数：12 常规 / 13 密排，见 Z.COLS_OPTIONS
     repeat_times: 12,   // 每个数字占几格（含第一个示范格）
     blank_row: 0,       // 每个数字后面留几行空白自己写
     fix: 0,             // 每页尾部订正格
@@ -34,6 +34,9 @@
       // 数字是矢量数据，不用预取笔顺分片
       const gen = G.useGen('num', DEFAULTS, Z.genNumber, validate);
       const { form, doc, pages, items, generate, print, pageCount } = gen;
+      // 老存档的列数是 4~20 任意值，现在只有 12/13 两档，
+      // 进来先归一，免得分段按钮一个都不亮
+      form.cols = Z.colsOf(form.cols);
 
       const digitCount = Vue.computed(() => String(form.content || '').replace(/[^0-9]/g, '').length);
       // 描点那一档就是原站的「圆点画」，顺手把话说清楚
@@ -49,6 +52,7 @@
         ...gen, form, doc, pages, items, generate, print, pageCount,
         digitCount, traceTip,
         numFonts: Z.NUM_FONTS.map((f) => ({ v: f.key, label: f.name })), guideOptions: Z.GUIDE_OPTIONS,
+        colOptions: Z.COLS_OPTIONS,
         // 数字是矢量字形，这套表原样搬过来即可
         traceOptions: Z.TRACE_OPTIONS,
         footOptions: Z.FOOT_OPTIONS,
@@ -79,7 +83,9 @@
                 <div class="hint" v-if="traceTip">{{ traceTip }}</div>
               </z-field>
 
-              <z-field label="每行格数"><z-num v-model="form.cols" :min="4" :max="20" suffix="格"></z-num></z-field>
+              <z-field label="每行格数" tip="12 格常规（15mm）/ 13 格密排（14.46mm，左右页边距收窄到 10mm）">
+                <z-seg v-model="form.cols" :options="colOptions"></z-seg>
+              </z-field>
 
               <z-field label="每字格数" tip="含最前面那个深色示范格；填满一行就是一行一个数字">
                 <z-num v-model="form.repeat_times" :min="1" :max="60" suffix="格"></z-num>

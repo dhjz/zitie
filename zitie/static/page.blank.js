@@ -10,6 +10,7 @@
     pinyin: 0,
     py_style: 'grid',
     num: 2,
+    cols: 12,        // 每行格数：12 常规 / 13 密排
     foot: 0,
     border_color: 'rgb(56, 152, 219)',
     font_color: 'rgb(84, 92, 104)',
@@ -35,10 +36,11 @@
       const guideOptions = Z.BLANK_GUIDES;
       const footOptions = Z.FOOT_OPTIONS;
       const pyStyles = Z.PY_STYLES;
+      const colOptions = Z.COLS_OPTIONS;
       // 四线三格本来就没有「拼音行」这回事，那条选项得藏起来
       const isEn = Vue.computed(() => form.guide === 'en');
       return { ...gen, form, doc, pages, items, generate, print,
-        guideOptions, footOptions, pyStyles, isEn, borderColors: Z.BORDER_COLORS };
+        guideOptions, footOptions, pyStyles, isEn, colOptions, borderColors: Z.BORDER_COLORS };
     },
     template: `
       <div class="split">
@@ -47,6 +49,9 @@
             <div class="card-hd"><h3>空白练习纸</h3></div>
             <div class="card-bd">
               <z-field label="格型"><z-seg v-model="form.guide" :options="guideOptions"></z-seg></z-field>
+              <z-field label="每行格数" tip="12 格是常规密度（格子 15mm）；13 格密排，左右页边距收窄到 10mm，格子 14.46mm">
+                <z-seg v-model="form.cols" :options="colOptions"></z-seg>
+              </z-field>
               <z-field v-if="!isEn" label="拼音">
                 <z-seg v-model="form.pinyin" :options="[{ v: 1, label: '加拼音行' }, { v: 0, label: '不加' }]"></z-seg>
               </z-field>
@@ -68,7 +73,7 @@
           </div>
           <div class="card">
             <div class="card-bd hint">
-              汉字格一页 12 列 × 16 行；加了拼音行是 12 列 × 11 行。
+              汉字格默认 12 列 × 16 行，切到 13 列是 13 × 16（左右页边距收到 10mm，格子仍是 14.46mm）；加了拼音行是 12 × 11。四线三格也认这两档，13 格时每格 14.46mm × 8.84mm。
               双横线是抄写本那种横线页，横着写下去不断行。
             </div>
           </div>
