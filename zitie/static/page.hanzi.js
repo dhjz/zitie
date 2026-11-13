@@ -24,6 +24,9 @@
     font_color: 'rgb(255, 120, 120)',
   };
 
+  // 参与自动保存与导出；inputs 里的是输入类，不落盘也不导出
+  Z.settings.define('hanzi', { label: '汉字字帖', defaults: DEFAULTS, inputs: ['content', 'pinyin_fix'] });
+
   const validate = (f) => {
     if (!Z.chars(f.content).length) return '先输入要练的汉字';
     return '';

@@ -19,6 +19,9 @@
     font_color: 'rgb(84, 92, 104)',
   };
 
+  // 参与自动保存与导出；inputs 里的是输入类，不落盘也不导出
+  Z.settings.define('stage', { label: '词语文章', defaults: DEFAULTS, inputs: ['content'] });
+
   const validate = (f) => (String(f.content || '').trim() ? '' : '先输入一段文字');
 
   G.StagePage = {

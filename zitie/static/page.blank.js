@@ -15,6 +15,9 @@
     font_color: 'rgb(84, 92, 104)',
   };
 
+  // 参与自动保存与导出；inputs 里的是输入类，不落盘也不导出
+  Z.settings.define('blank', { label: '空白练习纸', defaults: DEFAULTS, inputs: [] });
+
   // 老版本存的是 type 1..5（田/田+拼音/米/米+拼音/英文纸），换成新的一套。
   // 不迁移的话老用户进来会看到一张默认田字格，参数像是被清了。
   const OLD_TYPE = { 1: ['tian', 0], 2: ['tian', 1], 3: ['mi', 0], 4: ['mi', 1], 5: ['en', 0] };

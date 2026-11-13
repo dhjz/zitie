@@ -33,6 +33,7 @@
                 <span class="col-ico">📚</span><span class="col-txt">素材合集</span>
               </button>
               <button class="icon-btn" :title="dark ? '切到亮色' : '切到暗色'" @click="toggleTheme">{{ dark ? '☀️' : '🌙' }}</button>
+              <button class="icon-btn" title="设置：导入导出配置" @click="showSettings = true">⚙️</button>
               <button class="icon-btn" title="使用说明" @click="go('guide')">?</button>
             </div>
           </div>
@@ -51,6 +52,7 @@
         </main>
 
         <collection-dialog v-model="showCollections"></collection-dialog>
+        <settings-dialog v-model="showSettings"></settings-dialog>
         <z-toasts></z-toasts>
       </div>
     </div>
@@ -72,6 +74,7 @@
     <script src="static/data/collections.js"></script>
     <script src="static/data/lessons.js"></script>
     <script src="static/utils.js"></script>
+    <script src="static/store.js"></script>
     <script src="static/ui.js"></script>
     <script src="static/collection.js"></script>
     <script src="static/page.home.js"></script>
@@ -83,6 +86,7 @@
     <script src="static/page.pen.js"></script>
     <script src="static/page.blank.js"></script>
     <script src="static/page.guide.js"></script>
+    <script src="static/page.settings.js"></script>
     <script src="static/index.js"></script>
   </body>
 </html>

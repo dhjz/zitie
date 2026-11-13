@@ -678,3 +678,16 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 6px; font-
   .ln-name { max-width: 58%; }
   .ln-chars { letter-spacing: 1px; }
 }
+
+/* ---------------- 设置弹窗 ----------------
+   顶栏齿轮进来的那个：一边列「哪些页面在存配置」，一边是导出/导入/恢复。
+   内容比素材合集少得多，所以面板窄一点、不滚动。 */
+.set-panel { width: min(520px, 100%); }
+.set-body { display: block; overflow: visible; }
+.set-list { display: grid; gap: 6px; margin-bottom: 12px; }
+.set-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px 12px; border-radius: var(--r-sm);
+  background: var(--surface-2); border: 1px solid var(--line-soft); font-size: 13px;
+}
+.set-row .hint { font-size: 12px; }

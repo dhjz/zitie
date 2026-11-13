@@ -9,10 +9,12 @@ index.html        根组件模板
 static/
   app.css         界面样式 + 打印版面
   utils.js        工具层：笔顺解码 / 拼音 / 出题 / 分页排版
+  store.js        配置层：schema 注册表、自动保存、导出导入、恢复默认
   ui.js           组件层：控件、A4 纸张、格子
   index.js        入口：路由、主题、装配
   page.*.js       各功能页（自注册进 window.myComponents）
   collection.js   素材合集：弹窗、页签、方格点选与复制
+  page.settings.js 设置弹窗：导出 / 导入 JSON、恢复默认
   data/           笔顺数据、拼音引擎、素材合集数据、课文生字表
   fonts/          中文六款、英文四款、拼音两款、控笔线条一套
 ```
@@ -20,9 +22,10 @@ static/
 ## 加一个页面
 
 1. 拷一份 `static/page.hanzi.js`，改成 `page.xxx.js`
-2. 末尾写 `window.myComponents.XxxPage = XxxPage`
-3. `index.html` 里补 `<script src="static/page.xxx.js">`
-4. `static/index.js` 的 `ROUTES` 加一项，模板里加 `<xxx-page v-else-if="route === 'xxx'">`
+2. 在 `DEFAULTS` 底下加一行 `Z.settings.define('xxx', { label, defaults: DEFAULTS, inputs: ['content'] })`
+3. 末尾写 `window.myComponents.XxxPage = XxxPage`
+4. `index.html` 里补 `<script src="static/page.xxx.js">`
+5. `static/index.js` 的 `ROUTES` 加一项，模板里加 `<xxx-page v-else-if="route === 'xxx'">`
 
 `index.js` 本身不用改 —— 组件是自注册的。
 
@@ -109,6 +112,23 @@ CSS 描不了字形轮廓，但 SVG 的 `stroke` + `stroke-dasharray` 可以，
 
 顺手修了一个老 bug：`genHanzi` 原来按「第几个不重复的字」去取拼音，
 内容里一出现重复字，后面的音就全串了一位。现在按 `pinyinList` 的分位对齐取。
+
+## 配置的保存与搬家
+
+每个页面的参数改完自动存本机，刷新还在。这件事统一在 `static/store.js` 里的 `Z.settings`：
+
+- **页面自描述 schema**。每个 `page.*.js` 在 `DEFAULTS` 底下写一行
+  `Z.settings.define('xxx', { label, defaults: DEFAULTS, inputs: ['content'] })`，
+  store 不复制默认值，也不猜字段。
+- **`inputs` 是输入类**：正文（`content`）、逐字注音（`pinyin_fix`）这类不落盘、也不进导出的 JSON。
+  表格的排版规则（比如 `row_pattern` 间隔描字）算配置，照常保存。
+- **清洗靠默认值的类型**。只认 `defaults` 里声明过的键，`typeof` 对齐默认值 ——
+  删过的旧字段、手改坏的 json 自然出局。
+- **保存挂在 `useGen` 的防抖 watch 上（300ms）**，不挂在 `generate` 里：
+  以前校验不过（比如正文清空）就直接 return，顺带把刚改的格型颜色一起丢了。
+
+顶栏齿轮里是出口和入口：导出 JSON（带亮暗主题）、导入 JSON、恢复默认。
+导入和恢复都会整页刷新 —— 页面各自持有一份 `form`，逐页去改容易留下半新半旧的中间态。
 
 ## 三个约定
 

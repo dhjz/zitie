@@ -644,9 +644,9 @@
   G.useGen = (key, defaults, build, validate, opts) => {
     const needStrokes = (opts && opts.strokes) || (() => true);
     const { ref, reactive, computed, watch } = Vue;
-    // 上次用过的参数记在本地，下次进来还是那套（比 zivip 每次重选省事）
-    const saved = Z.load(key, {});
-    const form = reactive(Object.assign({}, defaults, saved, { content: saved.content || defaults.content || '' }));
+    // 参数统一走 Z.settings：默认值合并、脏数据清洗、输入类不落盘都在那里。
+    // 页面已经在顶部 define 过就按它的 schema 来，没有就临时用这份 defaults。
+    const form = reactive(Z.settings.init(key, defaults));
     // 删过字体之后，本地存的还是旧 key（比如 enitali），表单里会留一个空选项
     if (defaults.font_key && !(Z.EN_FONTS.concat(Z.PY_FONTS, Z.ZH_FONTS).some((f) => f.key === form.font_key))) {
       form.font_key = defaults.font_key;
@@ -669,7 +669,6 @@
       doc.value = out.doc;
       pages.value = out.pages || [];
       items.value = out.items || [];
-      Z.save(key, { ...form });
     };
 
     const print = () => {
@@ -680,8 +679,12 @@
     // 进来先出一版：空白页面对新用户没意义
     Vue.onMounted(generate);
 
-    // 参数一变就重排：本地计算，几毫秒的事，比点按钮顺手
+    // 参数一变就重排：本地计算，几毫秒的事，比点按钮顺手。
+    // 顺手落盘（防抖 300ms）：以前保存挂在 generate 里，校验不过就把改的配置一起丢了。
+    let tid = 0;
     watch(() => ({ ...form }), () => {
+      clearTimeout(tid);
+      tid = setTimeout(() => Z.settings.set(key, form), 300);
       if (doc.value || pages.value.length) generate();
     }, { deep: true });
 
