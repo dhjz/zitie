@@ -17,25 +17,50 @@
 
   /* 按块分页：一个字/一个音节的练习块不许被页边界切开。
      块比一页还大时只能硬切（那种情况说明参数设得太狠）。
-     fill：把非末页补齐成整页，免得页面底下缺一块白 —— 打印出来就像没印完。 */
-  Z.paginateBlocks = (blocks, per, fill) => {
+     fill：把非末页补齐成整页，免得页面底下缺一块白 —— 打印出来就像没印完。
+
+     weight：一个 cell 占几格，默认各占 1 格。笔顺条的字头行是跨整行的一格，
+     权重得按一行（cols）算 —— 都算 1 的话「1 行字头 + 3 行描红」看着才 4 格，
+     实际占了 4 行，一页就会塞进双倍的块。 */
+  Z.paginateBlocks = (blocks, per, fill, weight) => {
+    const w = weight || (() => 1);
+    const width = (list) => list.reduce((n, c) => n + w(c), 0);
     const pages = [];
     let cur = [];
+    const flush = () => { if (cur.length) { pages.push(cur); cur = []; } };
+
     for (const block of blocks) {
-      if (block.length > per) {
-        if (cur.length) { pages.push(cur); cur = []; }
-        for (let i = 0; i < block.length; i += per) pages.push(block.slice(i, i + per));
+      if (width(block) > per) {
+        // 块比一页还大：按格重找切点硬切，切完照样接着排后面的块
+        flush();
+        let piece = [];
+        let acc = 0;
+        for (const c of block) {
+          if (acc + w(c) > per && piece.length) { pages.push(piece); piece = []; acc = 0; }
+          piece.push(c);
+          acc += w(c);
+        }
+        if (piece.length) pages.push(piece);
         continue;
       }
-      if (cur.length + block.length > per) { pages.push(cur); cur = []; }
+      if (width(cur) + width(block) > per) flush();
       cur = cur.concat(block);
     }
-    if (cur.length) pages.push(cur);
+    flush();
     if (!pages.length) return [[]];
     if (fill) {
       // 每页都补齐：字帖的一页就该是一整版格子，
       // 底下留半页白纸看着像没印完
-      for (const p of pages) while (p.length < per) p.push(fill());
+      for (const p of pages) {
+        let left = per - width(p);
+        while (left > 0) {
+          const c = fill();
+          const cw = w(c);
+          if (cw <= 0) break;
+          p.push(c);
+          left -= cw;
+        }
+      }
     }
     return pages;
   };
@@ -915,8 +940,10 @@
   }
 
   /* 汉字字帖
-     font_type: 1 描字 / 2 笔顺
-     每个字：头格（深色示范）+ 描字行 + 空白行，补齐整行
+     font_type: 1 描字 / 2 笔顺 / 3 笔顺条
+     1、2：每个字一块，头格（深色示范）+ 描字行 + 空白行，补齐整行
+     3：每块先来一条跨整行的字头（整字 + 拼音 + 笔顺小图串），
+        下面才是整行的描红 —— 作业本上那种「示范一行、练字一行」的排法
 
      render 决定字形怎么画：描字用 text（字体整字，选哪款就是哪款），
      笔顺用 stroke（笔画轮廓，只有它能逐笔拆）。 */
@@ -924,7 +951,10 @@
     const chars = Z.chars(form.content);
     if (!chars.length) return null;
     const cols = Z.colsOf(form.cols);
-    const pinyin = !!form.pinyin;
+    const fontType = Number(form.font_type);
+    // 笔顺条把拼音挪进字头行里，格子里就不再单独留拼音行了
+    const strip = fontType === 3;
+    const pinyin = !strip && !!form.pinyin;
     const fixH = Z.fixH(form.fix);
     const grid = Z.gridFor(cols, 15, pinyin, fixH);
     const { cellH, perPage } = grid;
@@ -948,12 +978,41 @@
     const blocks = [];
     // 填了模式就按模式逐行排，没填才用「几行描 + 几行空」。
     // 笔顺帖一格里是一笔，模式那种「一行整字」跟它不是一个东西，不掺和。
-    const pattern = Number(form.font_type) === 2 ? [] : Z.parseRowPattern(form.row_pattern);
+    const pattern = fontType === 2 ? [] : Z.parseRowPattern(form.row_pattern);
+    // 字头行跨整行，分页时得按一整行算（见 Z.paginateBlocks 的 weight）
+    const weight = (c) => (c.kind === 'headbar' ? cols : 1);
+
+    // 笔顺条的描红行：一行一行的整字，第一行第一格深色示范（跟别的格式一个规矩）
+    const stripRows = (block, ch) => {
+      const rows = pattern.length ? pattern : null;
+      if (rows) {
+        const headRow = rows.indexOf('t');
+        rows.forEach((t, r) => {
+          for (let c = 0; c < cols; c++) {
+            if (t === 'b') block.push(blank());
+            else block.push(cellCh(ch, '', t === 't' && r === headRow && c === 0));
+          }
+        });
+        return;
+      }
+      for (let r = 0; r < fillRow; r++) {
+        for (let c = 0; c < cols; c++) block.push(cellCh(ch, '', r === 0 && c === 0));
+      }
+      for (let r = 0; r < blankRow; r++) for (let c = 0; c < cols; c++) block.push(blank());
+    };
 
     for (const ch of chars) {
       const py = pyOf.get(ch) || '';
       const block = [];
-      if (Number(form.font_type) === 2) {
+      if (strip) {
+        // 字头：整字 + 拼音 + 笔顺小图串，跨整行占一格；
+        // 拼音跟着「有没有拼音」这个开关走，关了就只留字和笔顺
+        block.push({ kind: 'headbar', ch, py: form.pinyin ? py : '', head: true });
+        stripRows(block, ch);
+        blocks.push(block);
+        continue;
+      }
+      if (fontType === 2) {
         // 笔顺：整字示范，再一笔一笔追加
         // 分片已由 useGen 预取，这里拿得到真笔画数
         const n = Math.max(1, Z.strokesOf(ch).length);
@@ -990,14 +1049,17 @@
         pyStyle: Z.pyStyleOf(form.py_style),
         guide: form.guide || 'tian', line: form.border_color, ink: form.font_color,
         fontCss: form.font_key || 'kaiti',
-        render: Number(form.font_type) === 2 ? 'stroke' : 'text',
+        render: fontType === 2 ? 'stroke' : 'text',
         /* 笔顺帖画的是笔画轮廓 + 笔心线，十一档全支持；
-           描字帖走字体整字，只有描边那一类做得了，其余落回细虚线 */
-        trace: Number(form.font_type) === 2 ? Z.traceOf(form.trace) : Z.fontTraceOf(form.trace),
+           描字帖、笔顺条走字体整字，只有描边那一类做得了，其余落回细虚线 */
+        trace: fontType === 2 ? Z.traceOf(form.trace) : Z.fontTraceOf(form.trace),
         foot: Z.footOf(form.foot), fixH,
         gridWidth: Z.gridWidthOf(cols), padX: Z.padXOf(cols),
+        /* 笔顺条的字头行就按一格高算：分页是按「一行几格」排的，
+           字头行矮一截的话整页高度会跟 perPage 对不上，底下多出一条白 */
+        barH: strip ? cellH : 0,
       },
-      pages: Z.paginateBlocks(blocks, perPage, () => cellCh('', '')),
+      pages: Z.paginateBlocks(blocks, perPage, () => cellCh('', ''), weight),
     };
   };
 

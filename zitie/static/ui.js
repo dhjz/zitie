@@ -618,6 +618,46 @@
       </div>`,
   };
 
+  /* 笔顺条的字头行：整字 + 拼音 + 一溜笔顺小图，横着铺满一整行。
+     它跨整行（grid-column: 1 / -1），所以不画格线 —— 格线交给它下面那些描红格。
+     笔顺小图就是 ZGlyph 的 stroke 路子按 upTo 逐笔叠出来的：
+     一个字十画就排十个小图，一个图一笔，看图就能跟着写。 */
+  G.ZCellHead = {
+    name: 'ZCellHead',
+    props: {
+      cell: { type: Object, required: true }, ink: String, fontCss: String,
+      mode: { type: String, default: 'text' },
+      barH: { type: Number, default: 11 },
+    },
+    setup(props) {
+      // 笔画数是分片懒加载的，跟 ZGlyph 一样挂一个 strokeRev 当触发器：
+      // 分片到齐之前按一笔画，到了自己补齐
+      const n = computed(() => {
+        Z.strokeRev.n;
+        return Math.max(1, Z.strokesOf(props.cell.ch).length);
+      });
+      // 小图的边长：整字比笔顺小图大一圈，得先看清整字。
+      // 一条字头就一格高，笔顺多了（二十几画）得自己缩一档才排得下一行
+      const side = computed(() => Math.round(props.barH * (n.value > 16 ? 0.36 : 0.5) * 100) / 100);
+      const head = computed(() => Math.round(props.barH * 0.64 * 100) / 100);
+      return { n, side, head };
+    },
+    template: `
+      <div class="cell-cn headbar" :style="{ minHeight: barH + 'mm' }">
+        <div class="hb-head">
+          <span class="hb-ch" :style="{ width: head + 'mm', height: head + 'mm' }">
+            <z-glyph :ch="cell.ch" ink="#262c36" :mode="mode" :font-css="fontCss" :trace="'solid'" head />
+          </span>
+          <span v-if="cell.py" class="hb-py">{{ cell.py }}</span>
+        </div>
+        <div class="hb-strokes">
+          <span v-for="i in n" :key="i" class="hb-stroke" :style="{ width: side + 'mm', height: side + 'mm' }">
+            <z-glyph :ch="cell.ch" :up-to="i" mode="stroke" :ink="ink" :pad="0" />
+          </span>
+        </div>
+      </div>`,
+  };
+
   // 数字格：格子跟汉字格同一套（田字格 / 米字格 / 方格…），只是格子里画数字
   G.ZCellNum = {
     name: 'ZCellNum',
@@ -773,10 +813,14 @@
         <div class="sheet-bd">
           <div v-if="doc.kind === 'cn'" class="grid-cn" :class="'guide-' + (doc.guide || 'tian')"
             :style="[gridStyle, { '--cell-line': doc.line }]">
-            <z-cell-cn v-for="(c, i) in cells" :key="i" :cell="c" :pinyin="doc.pinyin"
-              :guide="doc.guide || 'tian'" :ink="doc.ink" :mode="doc.render || 'text'"
-              :trace="doc.trace || 'solid'" :py-style="doc.pyStyle || 'grid'"
-              :font-css="fontCss" :cell-h="doc.cellH || 15" :py-h="doc.pyH || 7.4"></z-cell-cn>
+            <template v-for="(c, i) in cells" :key="i">
+              <z-cell-head v-if="c.kind === 'headbar'" :cell="c" :ink="doc.ink" :mode="doc.render || 'text'"
+                :font-css="fontCss" :bar-h="doc.barH || 11"></z-cell-head>
+              <z-cell-cn v-else :cell="c" :pinyin="doc.pinyin"
+                :guide="doc.guide || 'tian'" :ink="doc.ink" :mode="doc.render || 'text'"
+                :trace="doc.trace || 'solid'" :py-style="doc.pyStyle || 'grid'"
+                :font-css="fontCss" :cell-h="doc.cellH || 15" :py-h="doc.pyH || 7.4"></z-cell-cn>
+            </template>
           </div>
           <div v-else-if="doc.kind === 'num'" class="grid-cn" :class="'guide-' + (doc.guide || 'tian')"
             :style="[gridStyle, { '--cell-line': doc.line }]">

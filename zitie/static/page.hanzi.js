@@ -9,7 +9,7 @@
     title: '字帖练习本',
     content: '永和九年岁在癸丑',
     font_key: 'kaiti',
-    font_type: 1,       // 1 描字 2 笔顺
+    font_type: 1,       // 1 描字 2 笔顺 3 笔顺条
     pinyin: 1,
     guide: 'tian',      // 见 Z.GUIDE_OPTIONS
     trace: 1,           // 见 Z.TRACE_OPTIONS
@@ -37,7 +37,8 @@
     name: 'HanziPage',
     setup() {
       // 只有笔顺帖要逐笔拆，得先等笔画数据到位；描字帖走字体，不用等
-      const gen = G.useGen('hanzi', DEFAULTS, Z.genHanzi, validate, { strokes: (f) => Number(f.font_type) === 2 });
+      // 笔顺、笔顺条都要逐笔拆，得等笔画分片到位
+      const gen = G.useGen('hanzi', DEFAULTS, Z.genHanzi, validate, { strokes: (f) => Number(f.font_type) !== 1 });
       const { form, doc, pages, items, generate, print, pageCount } = gen;
 
       const fontOptions = Z.ZH_FONTS;
@@ -46,9 +47,9 @@
       // 填充虚线、擦除画要笔心线，字体里没有这信息，只能置灰
       const traceOptions = Vue.computed(() =>
         Z.TRACE_OPTIONS.map((o) => {
-          const fontPath = Number(form.font_type) !== 2;   // 描字 = 字体整字
+          const fontPath = Number(form.font_type) === 1;   // 描字 = 字体整字，笔顺两种都走轮廓
           const off = fontPath && Z.traceVectorOnly(Z.traceOf(o.v));
-          return off ? { ...o, disabled: true, tip: '这一档要把笔心线从字里剃出来，字体整字没有笔心线；切到「笔顺」才管用' } : o;
+          return off ? { ...o, disabled: true, tip: '这一档要把笔心线从字里剃出来，字体整字没有笔心线；切到「笔顺」「笔顺条」才管用' } : o;
         }));
       const footOptions = Z.FOOT_OPTIONS;
       const pyStyles = Z.PY_STYLES;
@@ -89,7 +90,7 @@
         generate();
       };
       const traceTip = Vue.computed(() => {
-        if (Number(form.font_type) === 2) return '笔顺是逐笔的轮廓 + 笔心线，十一档全部管用';
+        if (Number(form.font_type) !== 1) return '笔顺、笔顺条都是逐笔的轮廓 + 笔心线，十一档全部管用';
         if (Z.traceVectorOnly(Z.traceOf(form.trace))) return '这一档要笔心线，字体整字做不出来，已经退成细虚线';
         if (form.trace === 4) return '圆点：一串点沿笔心线摆出来，点的粗细跟着笔画肥瘦走';
         return '';
@@ -100,16 +101,20 @@
         return raw.length;
       });
       const charCount = Vue.computed(() => Z.chars(form.content).length);
+      // 笔顺条把拼音搬进字头行，格子里的拼音行就不存在了
+      const isStrip = Vue.computed(() => Number(form.font_type) === 3);
 
       // 笔顺模式画的是笔画轮廓数据，跟选哪款字体无关；换了非楷体就退回描字，
       // 免得用户以为字体没生效
       const strokeDisabled = Vue.computed(() => form.font_key !== 'kaiti');
-      Vue.watch(strokeDisabled, (v) => { if (v && form.font_type === 2) form.font_type = 1; });
+      // 存档里可能是「非楷体 + 笔顺」，一进来就得回落到描字，
+      // 所以 immediate —— 光靠变化触发的话初值不生效，那档选项还灰着却被选中
+      Vue.watch(strokeDisabled, (v) => { if (v && Number(form.font_type) !== 1) form.font_type = 1; }, { immediate: true });
 
       return {
         ...gen, form, doc, pages, items, generate, print, pageCount,
         fontOptions, guideOptions, traceOptions, footOptions, traceTip, pyStyles, colOptions,
-        charCount, dropped, strokeDisabled,
+        charCount, dropped, strokeDisabled, isStrip,
         editOpen, fixList, fixedCount, pyOf, setPy, resetPy,
         borderColors: Z.BORDER_COLORS, inkColors: Z.INK_COLORS,
       };
@@ -130,7 +135,9 @@
                 <z-seg v-model="form.font_type" :options="[
                   { v: 1, label: '描字' },
                   { v: 2, label: '笔顺', disabled: strokeDisabled,
-                    tip: strokeDisabled ? '笔顺是逐笔拆开的笔画轮廓，只能用楷体的笔画数据；描字才跟着字体走' : '逐笔演示笔顺' }
+                    tip: strokeDisabled ? '笔顺是逐笔拆开的笔画轮廓，只能用楷体的笔画数据；描字才跟着字体走' : '逐笔演示笔顺' },
+                  { v: 3, label: '笔顺条', disabled: strokeDisabled,
+                    tip: strokeDisabled ? '笔顺条要逐笔的笔画数据，只能用楷体' : '每字先一行「字 + 拼音 + 笔顺小图」，下面整行描红' }
                 ]"></z-seg>
               </z-field>
 
@@ -151,11 +158,11 @@
                 <z-fonts v-model="form.font_key" :fonts="fontOptions" sample="永字八法"></z-fonts>
               </z-field>
 
-              <z-field label="拼音">
+              <z-field label="拼音" :tip="isStrip ? '笔顺条的拼音印在字头那一行里，不占格子' : ''">
                 <z-seg v-model="form.pinyin" :options="[{ v: 1, label: '有拼音' }, { v: 0, label: '无拼音' }]"></z-seg>
               </z-field>
 
-              <z-field v-if="Number(form.pinyin)" label="拼音格">
+              <z-field v-if="Number(form.pinyin) && !isStrip" label="拼音格">
                 <z-seg v-model="form.py_style" :options="pyStyles"></z-seg>
               </z-field>
 
