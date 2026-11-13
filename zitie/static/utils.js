@@ -848,6 +848,76 @@
     };
   };
 
+  /* ---------------- 数字 ---------------- */
+  /* 数字不是字体，是矢量字形。
+     原站的数字模板把「专用数字 / 字母数字专用」两套字形按
+     strokes（轮廓）+ medians（运笔线）存成数据，服务端 myfont 接口原样吐出来 ——
+     跟汉字的笔顺数据同一种存法，所以能描红、能空心、能描点。
+     下载过来的字体文件是有的（/font/…），但那只够填色；逐笔描点必须靠轮廓数据。
+
+     描点（圆点画）的做法：沿每笔的运笔线按步长取点，取点半径 = 该点到
+     本笔轮廓的最近距离 —— 也就是说点的粗细跟着笔画的肥瘦走，横细竖粗。
+     原站是运行时拿 SVG 的 getTotalLength/getPointAtLength 现算的，
+     一个字几千次点查询，所以它每次切到「圆点画」都要弹「正在生成圆点数据」。
+     我们离线算好放进 data/num.js（算法就是下面注释里那套，一字不差），
+     打开即用，零等待。 */
+  Z.NUM_FONTS = [
+    { key: 'plain', name: '专用数字' },
+    { key: 'alpha', name: '字母数字专用' },
+  ];
+  Z.numFontOf = (key) => (Z.NUM_FONTS.some((f) => f.key === key) ? key : 'plain');
+
+  // 一套字形共用一个包络框：同一个字号下，1 和 8 的笔画粗细才对得上，
+  // 每个字各按自己的包围盒缩放，1 就会被撑成跟 8 一样宽。
+  Z.numMeta = (key) => {
+    const all = window.ZU_DIGITS || {};
+    const set = all[Z.numFontOf(key)];
+    if (!set) return { box: [-100, -220, 510, 990], glyphs: {} };
+    return set;
+  };
+  Z.numGlyph = (key, ch) => {
+    const meta = Z.numMeta(key);
+    return meta.glyphs[ch] || null;
+  };
+
+  /* 数字字帖
+     每格一个数字：头格深色示范，后面几格描（实心 / 空心 / 细虚线 / 圆点）。
+     圆点这一档就是原站那个「描点」—— 一串点勾出运笔线，孩子顺着点画。 */
+  Z.genNumber = (form) => {
+    const digits = String(form.content || '').replace(/[^0-9]/g, '').split('');
+    if (!digits.length) return null;
+    const cols = Z.clamp(form.cols || 12, 4, 20);
+    const fixH = Z.fixH(form.fix);
+    const grid = Z.gridFor(cols, 15, false, fixH);
+    const { cellH, perPage } = grid;
+    // 「每字格数」含示范格那一格：填 12 就是一个数字占一整行
+    const span = Z.clamp(form.repeat_times || cols, 1, 60);
+    const blankRow = Z.clamp(form.blank_row, 0, 5);
+    const blank = () => ({ ch: '', head: false });
+    const blocks = [];
+
+    for (const ch of digits) {
+      const block = [];
+      for (let i = 0; i < span; i++) block.push({ ch, head: i === 0 });
+      padToRow(block, cols, blank);
+      for (let r = 0; r < blankRow; r++) for (let c = 0; c < cols; c++) block.push(blank());
+      blocks.push(block);
+    }
+
+    return {
+      doc: {
+        kind: 'num', title: form.title, cols, cellH,
+        numFont: Z.numFontOf(form.num_font),
+        guide: form.guide || 'tian', line: form.border_color, ink: form.font_color,
+        // 描点不是描边：那是沿笔画摆一串点，跟空心/虚线是两回事
+        trace: Z.traceOf(form.trace),
+        foot: Z.footOf(form.foot), fixH,
+        gridWidth: 180,
+      },
+      pages: Z.paginateBlocks(blocks, perPage, () => blank()),
+    };
+  };
+
   /* 词语文章：整字渲染，按列铺
      换行交回给用户 —— 他敲了回车就是换行，没敲就一直排下去。
      硬按 12 格一刀切会把词语劈成两半（「春眠」拆到两行）。 */

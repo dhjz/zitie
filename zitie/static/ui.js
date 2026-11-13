@@ -199,6 +199,73 @@
       </span>`,
   };
 
+  /* 一个数字。
+     数据是 1024 方格、y 轴向上的矢量字形（见 data/num.js），跟汉字笔顺一套坐标，
+     所以同样 scale(1,-1) 翻过来画。四档描字都在这一条路上出：
+       solid 填色 / hollow 空心 / dash 细虚线 / dot 描点。
+     描点是把离线算好的 [x,y,r] 串直接摆成 circle —— 点的粗细跟着笔画肥瘦走，
+     不是均匀排一串点。 */
+  G.ZGlyphNum = {
+    name: 'ZGlyphNum',
+    props: {
+      ch: { type: String, default: '' },
+      fontKey: { type: String, default: 'plain' },
+      ink: { type: String, default: '#262c36' },
+      trace: { type: String, default: 'solid' },
+      head: { type: Boolean, default: false },
+      pad: { type: Number, default: 40 },
+    },
+    setup(props) {
+      // 同一套字形的 10 个数字共用一个包络框：各按自己的包围盒缩放，
+      // 「1」会被撑成跟「8」一样宽，整页数字胖瘦不齐
+      const g = computed(() => Z.numGlyph(props.fontKey, props.ch));
+      const box = computed(() => {
+        const meta = Z.numMeta(props.fontKey);
+        const [x0, y0, x1, y1] = meta.box;
+        const p = props.pad;
+        // y 翻过来之后 viewBox 的纵向范围是 [B-y1, B-y0]
+        const B = 1000;
+        return `${x0 - p} ${B - y1 - p} ${x1 - x0 + p * 2} ${y1 - y0 + p * 2}`;
+      });
+      const pen = computed(() => {
+        // 示范格永远实心深色 —— 先看清字形，描字类型只管练习格
+        if (props.head) return { mode: 'solid', w: 0, dash: null };
+        const t = props.trace;
+        if (t === 'hollow') return { mode: 'stroke', w: 30, dash: null };
+        if (t === 'dash') return { mode: 'stroke', w: 16, dash: '52 40' };
+        if (t === 'dot') return { mode: 'dot', w: 0, dash: null };
+        return { mode: 'solid', w: 0, dash: null };
+      });
+      // 描点数据是扁平的 [x,y,r,...]，模板里按 3 个一组拆
+      const dots = computed(() => {
+        if (pen.value.mode !== 'dot' || !g.value) return [];
+        const flat = g.value.d || [];
+        const out = [];
+        for (let i = 0; i + 2 < flat.length; i += 3) out.push([flat[i], flat[i + 1], flat[i + 2]]);
+        return out;
+      });
+      const ink = computed(() => (props.head ? '#262c36' : props.ink));
+      return { g, box, pen, dots, ink };
+    },
+    template: `
+      <span class="glyph text">
+        <svg v-if="g" :viewBox="box" xmlns="http://www.w3.org/2000/svg">
+          <g transform="scale(1,-1) translate(0,-1000)">
+            <template v-if="pen.mode === 'dot'">
+              <circle v-for="(d, i) in dots" :key="i" :cx="d[0]" :cy="d[1]" :r="d[2]" :fill="ink" />
+            </template>
+            <template v-else>
+              <path v-for="(d, i) in g.s" :key="i" :d="d"
+                :fill="pen.mode === 'solid' ? ink : 'none'"
+                :stroke="pen.mode === 'solid' ? 'none' : ink"
+                :stroke-width="pen.w" :stroke-dasharray="pen.dash" stroke-linejoin="round" />
+            </template>
+          </g>
+        </svg>
+        <span v-else class="glyph-text" :style="{ color: ink }">{{ ch }}</span>
+      </span>`,
+  };
+
   /* ---------------- 首页缩略图 ----------------
      功能卡上那张小样：按真实字帖的比例画一张迷你 A4 版面。
      用 SVG 而不是 DOM 拼格子 —— viewBox 一缩放就自适应卡片宽度，
@@ -281,6 +348,18 @@
         ['5', '5', '5', '5', '5', '5'],
         ['', '', '', '', '', ''],
         ['3', '3', '3', '3', '3', '3'],
+      ],
+    },
+    // 数字：跟汉字格同一套版面，格子里的内容换成一串数字
+    num: {
+      kind: 'cn', guide: 'tian', title: '数字练习',
+      rows: [
+        ['0', '0', '0', '0', '0', ''],
+        ['1', '1', '1', '1', '1', ''],
+        ['2', '2', '2', '2', '2', ''],
+        ['3', '3', '3', '3', '3', ''],
+        ['', '', '', '', '', ''],
+        ['4', '4', '4', '4', '4', ''],
       ],
     },
     math: {
@@ -418,6 +497,25 @@
       </div>`,
   };
 
+  // 数字格：格子跟汉字格同一套（田字格 / 米字格 / 方格…），只是格子里画数字
+  G.ZCellNum = {
+    name: 'ZCellNum',
+    props: {
+      cell: { type: Object, required: true }, guide: String, ink: String,
+      fontKey: { type: String, default: 'plain' },
+      trace: { type: String, default: 'solid' },
+      cellH: { type: Number, default: 15 },
+    },
+    template: `
+      <div class="cell-cn" :style="{ minHeight: cellH + 'mm' }">
+        <div class="cell-ch" :style="{ minHeight: cellH + 'mm' }">
+          <i class="cell-guide" :class="guide"></i>
+          <z-glyph-num v-if="cell.ch" :ch="cell.ch" :font-key="fontKey" :ink="ink"
+            :trace="trace" :head="cell.head" />
+        </div>
+      </div>`,
+  };
+
   // 英文格：四线三格。
   // 文字走 SVG 而不是 span —— 基线能精确落在第三条线的位置上（单位就是 mm，
   // 跟版面同一套量纲），不然只能靠 line-height 猜，字会浮在格中间。
@@ -529,6 +627,12 @@
               :guide="doc.guide || 'tian'" :ink="doc.ink" :mode="doc.render || 'text'"
               :trace="doc.trace || 'solid'" :py-style="doc.pyStyle || 'grid'"
               :font-css="fontCss" :cell-h="doc.cellH || 15" :py-h="doc.pyH || 7.4"></z-cell-cn>
+          </div>
+          <div v-else-if="doc.kind === 'num'" class="grid-cn" :class="'guide-' + (doc.guide || 'tian')"
+            :style="[gridStyle, { '--cell-line': doc.line }]">
+            <z-cell-num v-for="(c, i) in cells" :key="i" :cell="c" :guide="doc.guide || 'tian'"
+              :ink="doc.ink" :font-key="doc.numFont" :trace="doc.trace || 'solid'"
+              :cell-h="doc.cellH || 15"></z-cell-num>
           </div>
           <div v-else-if="doc.kind === 'en'" class="grid-en" :style="[gridStyle, { '--cell-line': doc.line }]">
             <z-cell-en v-for="(c, i) in cells" :key="i" :cell="c" :ink="doc.ink"

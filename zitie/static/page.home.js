@@ -11,6 +11,7 @@
         { name: 'hanzi', ico: '汉', title: '汉字字帖', desc: '描红 + 笔顺拆解，拼音可选，描几行留几行都能调' },
         { name: 'pinyin', ico: 'a', title: '拼音字帖', desc: '声母、韵母、整体认读，或把汉字自动注音' },
         { name: 'eletter', ico: 'A', title: '英文字帖', desc: '字母表与单词，四线三格，四款字体' },
+        { name: 'num', ico: '7', title: '数字字帖', desc: '0-9 描红、空心、细虚线、描点，笔画粗细跟着字形走' },
         { name: 'math', ico: '±', title: '数学练习', desc: '加减乘除竖式口算，范围与题型自己定' },
         { name: 'stage', ico: '文', title: '词语文章', desc: '整段文字铺格子，古诗、课文、词语都行' },
         { name: 'pen', ico: '〰', title: '控笔练习', desc: '直线、折线、螺旋、波浪铺满整页，先把手练稳再写字' },
