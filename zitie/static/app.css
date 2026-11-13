@@ -366,7 +366,9 @@ html.dark .thumb svg { filter: brightness(.93); }
 }
 .sheet-bd { flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; min-height: 0; }
 .sheet-ft {
-  position: relative; height: 8mm; flex: 0 0 auto;
+  /* 14mm 而不是 8mm：姓名那行离格区太近，孩子没地方落笔。
+     高度加上去的是「格区到横线之间的空白」，横线仍贴着纸底 8mm 的位置。 */
+  position: relative; height: 14mm; flex: 0 0 auto;
   display: flex; align-items: flex-end; justify-content: center;
   font-size: 10px; color: #98a2b3; letter-spacing: .5px;
 }
