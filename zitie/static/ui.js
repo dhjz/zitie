@@ -119,7 +119,14 @@
        mode='stroke' 笔画轮廓 —— 只有这条路能逐笔拆解，笔顺帖用；
        mode='text'   字体整字 —— 描字帖、词语文章用，选哪款中文字体就是哪款。
      两条路都走 SVG（text 元素打印出来也是矢量），所以版面尺寸算法一致。
-     字体的墨迹大小和基线由 Zu.fontMetric 量出来，各款字体都刚好压在格子里。 */
+     字体的墨迹大小和基线由 Zu.fontMetric 量出来，各款字体都刚好压在格子里。
+
+     描字类型（空心/虚线/圆点…）在这两条路上实现不一样，差别的根源只有一句：
+     **CSS 描不了字形轮廓，但 SVG 的 stroke 可以。**
+       - 字体整字：一条 <text> 挂 stroke + dasharray，想怎么描就怎么描。
+         但描不到「笔心线」—— 字体里没有这个信息，所以填充虚线、擦除画做不了。
+       - 笔画轮廓：轮廓 path 有了，笔心线也有（data/medians 那份），
+         于是既能描边、也能沿笔心线画带子、还能拿轮廓当裁切区把笔心线剃出来。 */
   G.ZGlyph = {
     name: 'ZGlyph',
     props: {
@@ -128,7 +135,7 @@
       upTo: { type: [Number, null], default: null }, // 只画前 N 笔
       mode: { type: String, default: 'stroke' },     // stroke 笔画轮廓 / text 字体整字
       fontCss: { type: String, default: '' },
-      trace: { type: String, default: 'solid' },     // solid 实心 / hollow 空心 / dash 细虚线 / dot 圆点
+      trace: { type: String, default: 'solid' },     // 见 Zu.TRACE_SPEC
       head: { type: Boolean, default: false },       // 深色示范格
       pad: { type: Number, default: 64 },            // 内缩，字不顶格才像字帖
     },
@@ -140,6 +147,28 @@
         Z.strokeRev.n;
         const all = Z.strokeFor(props.ch);
         return props.upTo == null ? all : all.slice(0, props.upTo);
+      });
+      // 笔心线也只在笔画那条路上要：字体整字拿不到，硬要也没用
+      const med = computed(() => {
+        if (props.mode !== 'stroke' || !props.ch) return null;
+        Z.medianRev.n;
+        return Z.mediansFor(props.ch);
+      });
+      const medians = computed(() => {
+        const m = med.value;
+        if (!m) return [];
+        const all = m.s || [];
+        return props.upTo == null ? all : all.slice(0, props.upTo);
+      });
+      /* 圆点（描点）：矢量字形有离线算好的圆，半径跟着笔画肥瘦走 ——
+         横细竖粗，这才是原站那个「圆点画」的样子。
+         字体整字没这份数据，只能退回 dasharray 摆的等径点。 */
+      const dots = computed(() => {
+        const m = med.value;
+        if (!m || !m.d || props.head) return [];
+        if (props.trace !== 'dot') return [];
+        const all = props.upTo == null ? m.d : m.d.slice(0, props.upTo);
+        return all.flat();
       });
       // 笔形数据本身是 0..1024 满幅的，往外撑一点 viewBox 当留白。
       // 字体整字不用留 —— 字号已经按墨迹缩到格子的 88%，再留白就瘦一圈。
@@ -159,26 +188,52 @@
           y: 1024 * m.baseline,
         };
       });
-      // 描字类型只作用在「字体整字」这条路上：CSS 描不了字形轮廓，
-      // 但 SVG 的 stroke + dasharray 可以 —— 一条属性就够，不用另存一套空心字体。
-      // hollow 空心、dash 细虚线、dot 圆点（dasharray 为 0 + 圆头，出来就是一串点）。
-      const pen = computed(() => {
-        if (props.trace === 'hollow') return { on: true, w: 24, dash: null, cap: null };
-        if (props.trace === 'dash') return { on: true, w: 11, dash: '44 32', cap: null };
-        if (props.trace === 'dot') return { on: true, w: 17, dash: '0 40', cap: 'round' };
-        return { on: false, w: 0, dash: null, cap: null };
+      /* 这一格到底怎么画。示范格（head）一律实心 —— 孩子得先看清字形。
+         字体整字那条路只能描边，所以宽笔迹那几档就用 f* 那组近似值；
+         真做不出来（填充虚线、擦除画）在页面上已经置灰，兜底给个细虚线。 */
+      const spec = computed(() => {
+        if (props.head) return Z.traceSpec('solid');
+        const sp = Z.traceSpec(props.trace);
+        // 笔画那条路：分片还在路上时没有笔心线，先按轮廓描边顶着，分片到了自己重画
+        if (props.mode === 'stroke' && sp.mw && !medians.value.length) return Z.traceSpec('dash');
+        return sp;
       });
+      // 字体整字那条路按 <text> 的 fill/stroke 走（f* 是这条路专用的宽度）
       const paint = computed(() => {
-        const traced = pen.value.on && !props.head;
+        const sp = spec.value;
+        if (sp.fill) return { fill: props.ink, stroke: 'none', w: 0, dash: null, cap: null };
+        const w = sp.fstroke || sp.stroke || 0;
+        if (!w) return { fill: props.ink, stroke: 'none', w: 0, dash: null, cap: null };
         return {
-          fill: traced ? 'none' : props.ink,
-          stroke: traced ? props.ink : 'none',
-          w: traced ? pen.value.w : 0,
-          dash: traced ? pen.value.dash : null,
-          cap: traced ? pen.value.cap : null,
+          fill: 'none',
+          stroke: props.ink,
+          w,
+          dash: sp.fdash || sp.dash || null,
+          cap: sp.fcap || sp.cap || null,
         };
       });
-      return { paths, box, face, paint };
+      // 笔画轮廓那条路：轮廓照 sp 描，笔心线另外画一条带子
+      const strokePaths = computed(() => {
+        const sp = spec.value;
+        const line = Z.polyPath;
+        return {
+          fill: sp.fill ? props.ink : 'none',
+          stroke: sp.stroke ? props.ink : 'none',
+          w: sp.stroke || 0,
+          dash: sp.dash || null,
+          cap: sp.cap || null,
+          faint: sp.faint || 0,
+          mw: sp.mw || 0,
+          mdash: sp.mdash || null,
+          mcap: sp.mcap || 'butt',
+          paper: !!sp.paper,
+          clip: !!sp.clip,
+          medianPaths: (sp.mw ? medians.value.map(line) : []),
+        };
+      });
+      // 裁切区要唯一 id：一页几十个格子，id 撞了后面全串味
+      const uid = 'zc' + Math.random().toString(36).slice(2, 8);
+      return { paths, medians, dots, box, face, paint, strokePaths, uid };
     },
     // 数据坐标系是 y 轴向上的 1024 方格，翻一下才是字形
     template: `
@@ -191,8 +246,35 @@
             :stroke-dasharray="paint.dash" :stroke-linecap="paint.cap">{{ ch }}</text>
         </svg>
         <svg v-else-if="paths.length" :viewBox="box" xmlns="http://www.w3.org/2000/svg">
+          <defs v-if="strokePaths.clip && strokePaths.mw">
+            <!-- 字形轮廓当裁切区：笔心线画得再粗，也只留在字里面 -->
+            <clipPath :id="uid">
+              <path v-for="(d, i) in paths" :key="'c' + i" :d="d" />
+            </clipPath>
+          </defs>
           <g transform="scale(1,-1) translate(0,-900)">
-            <path v-for="(d, i) in paths" :key="i" :d="d" :fill="ink" />
+            <!-- 浅底那一层：先给个很淡的轮廓，擦掉笔心线之后还认得出字 -->
+            <template v-if="strokePaths.faint">
+              <path v-for="(d, i) in paths" :key="'f' + i" :d="d" :fill="ink" :fill-opacity="strokePaths.faint" />
+            </template>
+            <!-- 圆点：有离线描点就摆圆，没有才退回 dasharray 摆的等径点 -->
+            <template v-if="dots.length">
+              <circle v-for="(p, i) in dots" :key="'d' + i" :cx="p[0]" :cy="p[1]" :r="p[2]" :fill="ink" />
+            </template>
+            <!-- 轮廓本体：有 stroke 就是空心/虚线，纯 fill 就是实心 -->
+            <template v-else>
+              <path v-for="(d, i) in paths" :key="i" :d="d"
+                :fill="strokePaths.fill" :stroke="strokePaths.stroke"
+                :stroke-width="strokePaths.w" :stroke-dasharray="strokePaths.dash"
+                :stroke-linecap="strokePaths.cap" stroke-linejoin="round" />
+            </template>
+            <!-- 笔心线带子：填充虚线（淡）与擦除画（白）都走这条 -->
+            <g v-if="strokePaths.mw" :clip-path="strokePaths.clip ? ('url(#' + uid + ')') : null">
+              <path v-for="(d, i) in strokePaths.medianPaths" :key="'m' + i" :d="d"
+                fill="none" :stroke="strokePaths.paper ? '#fff' : ink"
+                :stroke-width="strokePaths.mw" :stroke-dasharray="strokePaths.mdash"
+                :stroke-linecap="strokePaths.mcap" stroke-linejoin="round" />
+            </g>
           </g>
         </svg>
         <span v-else-if="ch" class="glyph-text" :style="{ color: ink, fontFamily: fontCss || 'kaiti' }">{{ ch }}</span>
@@ -201,10 +283,12 @@
 
   /* 一个数字。
      数据是 1024 方格、y 轴向上的矢量字形（见 data/num.js），跟汉字笔顺一套坐标，
-     所以同样 scale(1,-1) 翻过来画。四档描字都在这一条路上出：
-       solid 填色 / hollow 空心 / dash 细虚线 / dot 描点。
-     描点是把离线算好的 [x,y,r] 串直接摆成 circle —— 点的粗细跟着笔画肥瘦走，
-     不是均匀排一串点。 */
+     所以同样 scale(1,-1) 翻过来画。数字天生就是矢量字形（轮廓 + 笔心线 + 描点
+     都是现成的），所以描字那张表十一档全都能出：
+       实心 / 空心 / 空心虚线 / 细虚线 / 细虚线·密 / 细实线 / 点虚线
+       / 填充虚线 / 圆点 / 擦除画 / 浅底擦除
+     圆点是把离线算好的 [x,y,r] 串直接摆成 circle —— 点的粗细跟着笔画肥瘦走，
+     不是均匀排一串点。填充虚线与擦除画都拿轮廓当裁切区，把笔心线剃出来。 */
   G.ZGlyphNum = {
     name: 'ZGlyphNum',
     props: {
@@ -227,38 +311,62 @@
         const B = 1000;
         return `${x0 - p} ${B - y1 - p} ${x1 - x0 + p * 2} ${y1 - y0 + p * 2}`;
       });
-      const pen = computed(() => {
-        // 示范格永远实心深色 —— 先看清字形，描字类型只管练习格
-        if (props.head) return { mode: 'solid', w: 0, dash: null };
-        const t = props.trace;
-        if (t === 'hollow') return { mode: 'stroke', w: 30, dash: null };
-        if (t === 'dash') return { mode: 'stroke', w: 16, dash: '52 40' };
-        if (t === 'dot') return { mode: 'dot', w: 0, dash: null };
-        return { mode: 'solid', w: 0, dash: null };
-      });
+      // 示范格永远实心深色 —— 先看清字形，描字类型只管练习格
+      const spec = computed(() => (props.head ? Z.traceSpec('solid') : Z.traceSpec(props.trace)));
       // 描点数据是扁平的 [x,y,r,...]，模板里按 3 个一组拆
       const dots = computed(() => {
-        if (pen.value.mode !== 'dot' || !g.value) return [];
+        if (!spec.value.dots || !g.value) return [];
         const flat = g.value.d || [];
         const out = [];
         for (let i = 0; i + 2 < flat.length; i += 3) out.push([flat[i], flat[i + 1], flat[i + 2]]);
         return out;
       });
+      const sp = computed(() => {
+        const v = spec.value;
+        return {
+          fill: v.fill ? props.ink : 'none',
+          stroke: v.stroke ? props.ink : 'none',
+          w: v.stroke || 0,
+          dash: v.dash || null,
+          cap: v.cap || null,
+          faint: v.faint || 0,
+          mw: v.mw || 0,
+          mdash: v.mdash || null,
+          mcap: v.mcap || 'butt',
+          paper: !!v.paper,
+          clip: !!v.clip,
+          medianPaths: v.mw && g.value ? (g.value.m || []).map(Z.polyPath) : [],
+        };
+      });
       const ink = computed(() => (props.head ? '#262c36' : props.ink));
-      return { g, box, pen, dots, ink };
+      const uid = 'zn' + Math.random().toString(36).slice(2, 8);
+      return { g, box, spec, sp, dots, ink, uid };
     },
     template: `
       <span class="glyph text">
         <svg v-if="g" :viewBox="box" xmlns="http://www.w3.org/2000/svg">
+          <defs v-if="sp.clip && sp.medianPaths.length">
+            <clipPath :id="uid">
+              <path v-for="(d, i) in g.s" :key="'c' + i" :d="d" />
+            </clipPath>
+          </defs>
           <g transform="scale(1,-1) translate(0,-1000)">
-            <template v-if="pen.mode === 'dot'">
+            <!-- 浅底：擦掉笔心线之前先留一层很淡的轮廓，字还认得出来 -->
+            <template v-if="sp.faint">
+              <path v-for="(d, i) in g.s" :key="'f' + i" :d="d" :fill="ink" :fill-opacity="sp.faint" />
+            </template>
+            <template v-if="spec.dots">
               <circle v-for="(d, i) in dots" :key="i" :cx="d[0]" :cy="d[1]" :r="d[2]" :fill="ink" />
             </template>
             <template v-else>
               <path v-for="(d, i) in g.s" :key="i" :d="d"
-                :fill="pen.mode === 'solid' ? ink : 'none'"
-                :stroke="pen.mode === 'solid' ? 'none' : ink"
-                :stroke-width="pen.w" :stroke-dasharray="pen.dash" stroke-linejoin="round" />
+                :fill="sp.fill" :stroke="sp.stroke" :stroke-width="sp.w"
+                :stroke-dasharray="sp.dash" :stroke-linecap="sp.cap" stroke-linejoin="round" />
+              <g v-if="sp.mw && sp.medianPaths.length" :clip-path="sp.clip ? ('url(#' + uid + ')') : null">
+                <path v-for="(d, i) in sp.medianPaths" :key="'m' + i" :d="d"
+                  fill="none" :stroke="sp.paper ? '#fff' : ink" :stroke-width="sp.mw"
+                  :stroke-dasharray="sp.mdash" :stroke-linecap="sp.mcap" stroke-linejoin="round" />
+              </g>
             </template>
           </g>
         </svg>
@@ -525,6 +633,7 @@
     props: {
       cell: { type: Object, required: true }, ink: String, fontCss: String,
       fontKey: { type: String, default: 'shouxieti' },
+      trace: { type: String, default: 'solid' },
       cellW: { type: Number, default: 35 }, cellH: { type: Number, default: 9 },
       size: { type: Number, default: 6 }, mid: { type: Number, default: 1 / 3 }, base: { type: Number, default: 2 / 3 },
     },
@@ -537,7 +646,27 @@
         if (!em) return props.size;
         return Math.floor(Math.min(props.size, (props.cellW - 2.4) / em) * 100) / 100;
       });
-      return { box, fontSize };
+      /* 描字：四线三格里的字同样是 <text>，所以那套 stroke + dasharray 照样能用。
+         只是这里量纲是 mm 不是 1024 方格，描边宽度得按字号折算 ——
+         取字号的 7% 作基准（约等于 1024 方格里的 24 那条线）。
+         示范格（head）永远实心，跟汉字那边一致。 */
+      const paint = computed(() => {
+        if (props.cell.head) return { fill: '#262c36', stroke: 'none', w: 0, dash: null, cap: null };
+        // 这里的量纲是 mm、字形是「文字」，所以描边按字号的百分比给（见 Zu.TRACE_EM）
+        const em = Z.traceEm(Z.traceOf(props.trace)) || Z.traceOf(props.trace);
+        if (typeof em === 'string' || !em.w) {
+          return { fill: props.ink, stroke: 'none', w: 0, dash: null, cap: null };
+        }
+        const r2 = (v) => Math.round(v * 100) / 100;
+        return {
+          fill: 'none',
+          stroke: props.ink,
+          w: r2(Math.max(0.1, fontSize.value * em.w)),
+          dash: em.dash ? em.dash.map((v) => r2(fontSize.value * v)).join(' ') : null,
+          cap: em.cap || null,
+        };
+      });
+      return { box, fontSize, paint };
     },
     template: `
       <div class="cell-en" :style="{ height: cellH + 'mm' }">
@@ -547,7 +676,8 @@
           <!-- viewBox 的单位就是 mm（跟格子同一套量纲），所以 font-size 直接写数字，
                1 个单位 = 1mm。size 由 Zu.enLayout 按字体度量反算。 -->
           <text v-if="cell.word" :x="cellW / 2" :y="base * cellH" text-anchor="middle"
-            :font-family="fontCss" :font-size="fontSize" :fill="cell.head ? '#262c36' : ink">{{ cell.word }}</text>
+            :font-family="fontCss" :font-size="fontSize" :fill="paint.fill" :stroke="paint.stroke"
+            :stroke-width="paint.w" :stroke-dasharray="paint.dash" :stroke-linecap="paint.cap">{{ cell.word }}</text>
         </svg>
       </div>`,
   };
@@ -635,7 +765,7 @@
               :cell-h="doc.cellH || 15"></z-cell-num>
           </div>
           <div v-else-if="doc.kind === 'en'" class="grid-en" :style="[gridStyle, { '--cell-line': doc.line }]">
-            <z-cell-en v-for="(c, i) in cells" :key="i" :cell="c" :ink="doc.ink"
+            <z-cell-en v-for="(c, i) in cells" :key="i" :cell="c" :ink="doc.ink" :trace="doc.trace || 'solid'"
               :font-css="fontCss" :font-key="doc.fontCss" :cell-h="glyph.cellH" :cell-w="glyph.cellW"
               :size="glyph.size" :mid="glyph.mid" :base="glyph.base"></z-cell-en>
           </div>
@@ -765,8 +895,13 @@
       const err = validate && validate(form);
       if (err) { Z.toast(err, 'warn'); return; }
       const my = ++seq;
-      // 只有真的要画笔画轮廓时才去拉分片；字体整字那条路不需要
-      if (needStrokes(form)) await Z.prefetch(form.content || '');
+      // 只有真的要画笔画轮廓时才去拉分片；字体整字那条路不需要。
+      // 笔心线跟轮廓同号分片，一起拉 —— 圆点、填充虚线、擦除画都指望它，
+      // 少拉一次首帧就得先按「细虚线」顶着画，闪一下才变。
+      if (needStrokes(form)) {
+        const text = form.content || '';
+        await Promise.all([Z.prefetch(text), Z.prefetchMedian(text)]);
+      }
       if (my !== seq) return; // 期间又改了参数，这次结果作废
       const out = build(form);
       if (!out) { Z.toast('内容为空，先填点东西', 'warn'); doc.value = null; pages.value = []; items.value = []; return; }

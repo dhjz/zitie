@@ -9,6 +9,7 @@
     type: 'alphabet',
     content: 'apple banana orange',
     font_key: 'shouxieti',
+    trace: 1,           // 描字类型；四线三格的字细，只能用描边那一类
     repeat_times: 10,
     blank_row: 1,
     foot: 0,
@@ -32,10 +33,12 @@
       const gen = G.useGen('eletter', DEFAULTS, Z.genEnglish, validate);
       const { form, doc, pages, items, generate, print } = gen;
       const typeOptions = [{ v: 'alphabet', label: '字母表' }, { v: 'word', label: '单词' }];
+      // 四线三格的字本来就只有 2~3mm 粗，描边一加粗就糊；能用的只有描边那几档
+      const traceOptions = Z.EN_TRACE_OPTIONS;
       const wordCount = Vue.computed(() =>
         (String(form.content || '').trim() ? String(form.content).split(/[\s,，|]+/).filter(Boolean).length : 0));
       return { ...gen, form, doc, pages, items, generate, print,
-        typeOptions, wordCount, fonts: Z.EN_FONTS, footOptions: Z.FOOT_OPTIONS, borderColors: Z.BORDER_COLORS, inkColors: Z.INK_COLORS };
+        typeOptions, wordCount, traceOptions, fonts: Z.EN_FONTS, footOptions: Z.FOOT_OPTIONS, borderColors: Z.BORDER_COLORS, inkColors: Z.INK_COLORS };
     },
     template: `
       <div class="split">
@@ -52,6 +55,10 @@
 
               <z-field label="字体">
                 <z-fonts v-model="form.font_key" :fonts="fonts" sample="Aa Bb"></z-fonts>
+              </z-field>
+
+              <z-field label="描字" tip="示范格永远实心深色，只改后面的练习格">
+                <z-seg v-model="form.trace" :options="traceOptions"></z-seg>
               </z-field>
 
               <z-field label="重复"><z-num v-model="form.repeat_times" :min="1" :max="20" suffix="格"></z-num></z-field>

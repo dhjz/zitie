@@ -11,7 +11,7 @@
     pinyin: 0,
     py_style: 'grid',
     guide: 'tian',
-    trace: 1,
+    trace: 1,           // 描字类型，见 Z.TRACE_OPTIONS；字体整字只做得了描边那一类
     fix: 0,
     foot: 1,
     cols: 12,
@@ -32,7 +32,16 @@
       const charCount = Vue.computed(() => String(form.content || '').replace(/\s/g, '').length);
       const colOptions = [{ v: 8, label: '8 列' }, { v: 10, label: '10 列' }, { v: 12, label: '12 列' }, { v: 14, label: '14 列' }];
       const guideOptions = Z.GUIDE_OPTIONS;
-      const traceOptions = Z.TRACE_OPTIONS;
+      // 整段文字走字体整字（逐笔拆一整篇课文没意义），拿不到笔心线，
+      // 所以填充虚线、擦除画这几档置灰
+      const traceOptions = Z.TRACE_OPTIONS.map((o) =>
+        Z.traceVectorOnly(Z.traceOf(o.v))
+          ? { ...o, disabled: true, tip: '这一档要笔心线，字体整字做不出来' }
+          : o);
+      const traceTip = Vue.computed(() => {
+        if (Z.traceVectorOnly(Z.traceOf(form.trace))) return '这一档要笔心线，字帖走的是字体整字，已经退成细虚线';
+        return '';
+      });
       const footOptions = Z.FOOT_OPTIONS;
       const pyStyles = Z.PY_STYLES;
 
@@ -46,7 +55,7 @@
       const usePreset = (p) => { form.content = p.text; generate(); };
 
       return { ...gen, form, doc, pages, items, generate, print,
-        charCount, colOptions, guideOptions, traceOptions, footOptions, pyStyles,
+        charCount, colOptions, guideOptions, traceOptions, traceTip, footOptions, pyStyles,
         presets, usePreset,
         fonts: Z.ZH_FONTS, borderColors: Z.BORDER_COLORS, inkColors: Z.INK_COLORS };
     },
@@ -68,6 +77,10 @@
               <z-field label="列数"><z-seg v-model="form.cols" :options="colOptions"></z-seg></z-field>
               <z-field label="格型"><z-seg v-model="form.guide" :options="guideOptions"></z-seg></z-field>
               <z-field label="字体"><z-fonts v-model="form.font_key" :fonts="fonts" sample="春眠不觉"></z-fonts></z-field>
+              <z-field label="描字" tip="示范格永远是实心深色，只改整篇的练习格">
+                <z-seg v-model="form.trace" :options="traceOptions"></z-seg>
+                <div class="hint" v-if="traceTip">{{ traceTip }}</div>
+              </z-field>
               <z-field label="拼音">
                 <z-seg v-model="form.pinyin" :options="[{ v: 1, label: '有拼音' }, { v: 0, label: '无拼音' }]"></z-seg>
               </z-field>

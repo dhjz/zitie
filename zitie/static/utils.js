@@ -184,6 +184,141 @@
     return paths;
   };
 
+  /* ---------------- 笔心线 / 描点数据 ----------------
+     空心、虚线这些只要字形轮廓（strokes）就够，但「圆点画」「擦除画」得知道
+     这一笔从哪起步、往哪走 —— 那是笔心线（medians）。描点更是要沿笔心线
+     一个点一个点摆出来，半径还得取到轮廓的最近距离，一次几千回查询，
+     浏览器里现算一个字要小半秒（原站就是因此弹「正在生成圆点数据」）。
+
+     所以这里的数据是离线算好的：同一个字两条记录，一条笔心线、一条描点，
+     编码方式跟笔顺一模一样（首点绝对 +128，其余 zigzag 增量，两位 base36）。
+     同样按 41 个分片懒加载，且跟笔顺共用一个分片号 —— 只用到实心字的人
+     一个字节都不下。见 static/data/medians/。 */
+  const mBlobs = new Map();     // 桶号 → [笔心线文本, 描点文本]
+  const mIndex = new Map();     // 字 → { no, m: 笔心线起点, d: 描点起点 }
+  const mPending = new Map();
+  const mDecoded = new Map();   // 字 → { s: [[x,y]...], d: [[x,y,r]...] }
+
+  const lineAt = (blob, at) => {
+    if (!at) return '';
+    const nl = blob.indexOf('\n', at);
+    return blob.slice(at, nl < 0 ? blob.length : nl);
+  };
+
+  function indexMedian(no, medBlob, dotBlob) {
+    if (mBlobs.has(no)) return;
+    mBlobs.set(no, [medBlob || '', dotBlob || '']);
+    // 两段各扫一遍，只记每个字在这一段里的起点 —— 终点等取的时候再找换行，
+    // 这样索引就是一个字一条，不用在内存里摊开
+    [['m', medBlob || ''], ['d', dotBlob || '']].forEach(([k, blob]) => {
+      let pos = 0;
+      while (pos < blob.length) {
+        let nl = blob.indexOf('\n', pos);
+        if (nl < 0) nl = blob.length;
+        if (nl > pos) {
+          const rec = mIndex.get(blob[pos]) || { no };
+          rec[k] = pos + 1;
+          mIndex.set(blob[pos], rec);
+        }
+        pos = nl + 1;
+      }
+    });
+  }
+
+  function loadMedian(no) {
+    if (mBlobs.has(no)) return Promise.resolve();
+    if (mPending.has(no)) return mPending.get(no);
+    const p = new Promise((resolve) => {
+      const el = document.createElement('script');
+      el.src = `static/data/medians/${no}.js`;
+      el.onload = el.onerror = () => resolve();
+      document.head.appendChild(el);
+    });
+    mPending.set(no, p);
+    return p;
+  }
+
+  const mUnzig = (v) => (v & 1 ? -((v + 1) >> 1) : v >> 1);
+
+  // 笔心线：一笔一串点，笔与笔之间用 ; 隔开
+  function decodeMedians(s) {
+    const out = [];
+    for (const seg of String(s).split(';')) {
+      if (!seg) continue;
+      const pts = [];
+      let p = 0;
+      let prev = null;
+      while (p + 3 < seg.length) {
+        const ax = B36.indexOf(seg[p]) * 36 + B36.indexOf(seg[p + 1]);
+        const ay = B36.indexOf(seg[p + 2]) * 36 + B36.indexOf(seg[p + 3]);
+        p += 4;
+        if (!prev) prev = [ax - 128, ay - 128];
+        else prev = [prev[0] + mUnzig(ax), prev[1] + mUnzig(ay)];
+        pts.push(prev);
+      }
+      if (pts.length) out.push(pts);
+    }
+    return out;
+  }
+
+  // 描点：每点三个数（x / y / r），x、y 是增量，r 直接是值
+  function decodeDots(s) {
+    const out = [];
+    for (const seg of String(s).split(';')) {
+      if (!seg) continue;
+      const pts = [];
+      let p = 0;
+      let px = 0;
+      let py = 0;
+      while (p + 5 < seg.length) {
+        px += mUnzig(B36.indexOf(seg[p]) * 36 + B36.indexOf(seg[p + 1]));
+        py += mUnzig(B36.indexOf(seg[p + 2]) * 36 + B36.indexOf(seg[p + 3]));
+        const r = B36.indexOf(seg[p + 4]) * 36 + B36.indexOf(seg[p + 5]);
+        p += 6;
+        pts.push([px, py, r]);
+      }
+      if (pts.length) out.push(pts);
+    }
+    return out;
+  }
+
+  /* 同步取：分片还没到就先返回 null，渲染层靠 medianRev 再补一次。
+     跟 strokeFor 一样得记住「问过了」，否则每次重算都 load 一遍、
+     load 完 bump 版本号又重算，转成死循环。 */
+  Z.medianRev = Vue.reactive({ n: 0 });
+  const mAsked = new Set();
+  Z.mediansFor = (ch) => {
+    if (!ch) return null;
+    if (mDecoded.has(ch)) return mDecoded.get(ch);
+    const cp = ch.codePointAt(0);
+    if (cp < BASE || cp > 0x9fff) return null;
+    const rec = mIndex.get(ch);
+    if (rec && mBlobs.has(rec.no)) {
+      const [med, dot] = mBlobs.get(rec.no);
+      const out = { s: decodeMedians(lineAt(med, rec.m)), d: decodeDots(lineAt(dot, rec.d)) };
+      mDecoded.set(ch, out);
+      return out;
+    }
+    if (!mAsked.has(ch)) {
+      mAsked.add(ch);
+      loadMedian(shardOf(ch)).then(() => { Z.medianRev.n++; });
+    }
+    return null;
+  };
+
+  // 分片脚本加载完会调这个，形如 window.ZU_MEDIAN(桶号, `笔心线`, `描点`)
+  window.ZU_MEDIAN = indexMedian;
+
+  // 预取：这批字所在的分片先拉回来，别等渲染时一片一片补
+  Z.prefetchMedian = (text) => {
+    const nos = new Set();
+    for (const ch of String(text || '')) {
+      const cp = ch.codePointAt(0);
+      if (cp >= BASE && cp <= 0x9fff) nos.add(shardOf(ch));
+    }
+    return Promise.all([...nos].map(loadMedian));
+  };
+
   /* ---------------- 字体墨迹度量 ----------------
      几种中文字体的 em 框里，墨迹大小差得很远：隶书的字只占 em 高的 65%，
      仿宋能到 98%，行楷还往下探出 20%。字号直接取格子边长，同一个版面里
@@ -586,11 +721,129 @@
     { v: 'shuang', label: '双横线' }, { v: 'wu', label: '无格' },
   ];
 
+  /* 描字类型：两条完全不同的实现路子，按「有没有轮廓数据」分。
+     数字一直是矢量字形（轮廓 + 笔心线），全套都能做；
+     汉字/词语文章走字体整字，只能靠 SVG 的 stroke 描边 —— 细节见 ui.js 的 ZGlyph。
+
+     数值是给老存档留的：1~4 沿用原来的实心/空心/细虚线/圆点，5 往后是新加的。
+     编号顺序基本照原站那个下拉框，认起来不费劲。 */
   Z.TRACE_OPTIONS = [
-    { v: 1, label: '实心' }, { v: 2, label: '空心' }, { v: 3, label: '细虚线' }, { v: 4, label: '圆点' },
+    { v: 1, label: '实心' },
+    { v: 2, label: '空心' },
+    { v: 8, label: '空心虚线', tip: '空心字但轮廓是虚线，比纯空心少一点压迫感' },
+    { v: 3, label: '细虚线' },
+    { v: 9, label: '细虚线·密', tip: '同一条虚线，段落更密，远看接近实线' },
+    { v: 5, label: '细实线', tip: '只描轮廓不填色，笔画细，适合钢笔临摹' },
+    { v: 6, label: '点虚线', tip: '一串短点，提示笔画的走向' },
+    { v: 10, label: '填充虚线', tip: '轮廓投到笔心线上：先铺一条淡色带，再压虚线，字有肉感' },
+    { v: 4, label: '圆点' },
+    { v: 7, label: '擦除画', tip: '笔画被挖成白线。本质是把笔心线从字里剃掉' },
+    { v: 11, label: '浅底擦除', tip: '擦除画 + 一层很淡的轮廓底，看得见字形但笔迹是白的' },
   ];
-  // 1 实心（填色）/ 2 空心（描边）/ 3 细虚线（描边虚线）/ 4 圆点（点线描边）
-  Z.traceOf = (v) => ({ 2: 'hollow', 3: 'dash', 4: 'dot' }[Number(v)] || 'solid');
+  Z.TRACE_KEYS = ['solid', 'hollow', 'hollowDash', 'dash', 'dashDense', 'line', 'dotLine', 'fillDash', 'dot', 'erase', 'eraseFaint'];
+  // 1 实心 / 2 空心 / 3 细虚线 / 4 圆点 / 5 细实线 / 6 点虚线 / 7 擦除画 / 8 空心虚线 / 9 细虚线·密 / 10 填充虚线 / 11 浅底擦除
+  const TRACE_MAP = {
+    1: 'solid', 2: 'hollow', 3: 'dash', 4: 'dot',
+    5: 'line', 6: 'dotLine', 7: 'erase', 8: 'hollowDash',
+    9: 'dashDense', 10: 'fillDash', 11: 'eraseFaint',
+  };
+  /* 接受的可能是数字（表单里的值）也可能是 key 串（doc.trace 已经转过一次），
+     两样都认 —— 页面把选项原样传下来，中间少写一次转换就少一处错。 */
+  Z.traceOf = (v) => (typeof v === 'string' && Z.TRACE_KEYS.includes(v) ? v : TRACE_MAP[Number(v)] || 'solid');
+  // 这几档要笔心线（笔画从哪走），只有矢量字形才拿得到
+  Z.TRACE_NEEDS_MEDIAN = ['dotLine', 'fillDash', 'dot', 'erase', 'eraseFaint'];
+  // 这几档字体整字那条路做不出来（CSS 描不了字形轮廓，也就挖不出笔心线）
+  Z.TRACE_VECTOR_ONLY = ['fillDash', 'erase', 'eraseFaint'];
+  Z.traceNeedsMedian = (key) => Z.TRACE_NEEDS_MEDIAN.includes(key);
+  // 字体整字那条路：做不了的档位直接落回细虚线，别让版面空着
+  Z.fontTraceOf = (v) => {
+    const k = Z.traceOf(v);
+    return Z.TRACE_VECTOR_ONLY.includes(k) ? 'dash' : k;
+  };
+  Z.traceVectorOnly = (key) => Z.TRACE_VECTOR_ONLY.includes(key);
+
+  /* 四线三格（英文、拼音）能给的档位。
+     它们走字体整字，只有描边一条路；而且字本来就细（2~3mm 高），
+     所以只留四档看得清的：实心、空心、空心虚线、细虚线、圆点。
+     细实线跟空心差不太多，细虚线·密在这么小的字上会碎成一团墨点，
+     填充虚线、擦除画要笔心线 —— 都不给，宁缺毋滥。 */
+  const EN_TRACES = ['solid', 'hollow', 'hollowDash', 'dash', 'dot'];
+  Z.EN_TRACE_OPTIONS = Z.TRACE_OPTIONS.filter((o) => EN_TRACES.includes(Z.traceOf(o.v)));
+  // 字体整字那条路（汉字描字帖、词语文章）能给的档位：描边那一类都行
+  Z.FONT_TRACE_OPTIONS = Z.TRACE_OPTIONS.filter((o) => !Z.TRACE_VECTOR_ONLY.includes(Z.traceOf(o.v)));
+
+  /* 每一档描字到底怎么画。原站那套试得很透了，参数照搬，只换算量纲：
+     它的格子基准是 670px，我们的字形是 1024 方格，乘 1.528。
+
+     两条实现路子，差别只有一句：
+     **字形轮廓能描边，但轮廓里没有「笔从哪走」这件事 —— 那得靠笔心线。**
+       轮廓路线（stroke/dash）：描 <text> 或 <path> 的边缘。空心、空心虚线走这条。
+       笔心线路线（mw/mdash）：沿笔心线画一条宽线。细虚线、细实线、点虚线、
+         填充虚线、擦除画全在这条上 —— 100~200 宽的带子铺满整笔，
+         再把轮廓当裁切区，出去的剪掉，剩下的就是一道笔迹。
+
+     字段（stroke/mw 是两套路子的宽度，同一档两边都要各自的值）：
+       fill     整字填色
+       stroke   轮廓描边宽度（矢量字形那条路）
+       dash/cap 轮廓那条线的节奏与线头
+       mw       笔心线带子宽度、mdash 带子的虚线节奏
+       clip     拿字形轮廓当裁切区
+       paper    用纸色画 —— 那就是「擦除」
+       faint    先铺一层淡轮廓底再擦（数值就是那层底的不透明度）
+       f*       字体整字那条路用的近似值（那边只能描边，量纲也不同） */
+  Z.TRACE_SPEC = {
+    solid:      { fill: true },
+    hollow:     { stroke: 15, fstroke: 22 },
+    hollowDash: { stroke: 15, dash: '61 61', fstroke: 22, fdash: '52 48' },
+    line:       { mw: 38, fstroke: 9 },
+    dash:       { mw: 38, mdash: '46 46', fstroke: 12, fdash: '44 32' },
+    dashDense:  { mw: 38, mdash: '76 92', fstroke: 12, fdash: '18 12' },
+    // 点虚线：笔心线上摆一串等径小点（round 线头 + 零长线段）。
+    // 与「圆点」不同：这里的点大小一致，圆点那档的半径跟着笔画肥瘦走
+    dotLine:    { mw: 38, mdash: '0 107', mcap: 'round', fstroke: 16, fdash: '0 64', fcap: 'round' },
+    // 圆点：矢量字形摆离线算好的圆（半径跟着笔画肥瘦走）；
+    // 字体整字没这份数据，拿 dasharray 0 + 圆头摆一串等径点顶着
+    dot:        { dots: true, fstroke: 17, fdash: '0 46', fcap: 'round' },
+    fillDash:   { mw: 191, mdash: '31 46', clip: true },
+    /* 擦除画：沿笔心线挖一条细白槽穿进笔画里，字剩下两侧的边 ——
+       练的是「笔尖该走哪条道」，跟空心字那种「看清轮廓」是两个目的。
+       白槽不能开太宽，宽过笔画就把整笔吃掉了 —— 常笔画也就 70~90 单位，
+       取 34 刚好在中间开一道槽，两侧各剩一条能看清的边。
+       纸是纯白的，白槽本身不显形，所以底下垫一层淡轮廓当底 ——
+       擦除画垫得实一点，浅底擦除只垫个引子。 */
+    erase:      { faint: 0.85, mw: 34, clip: true, paper: true },
+    eraseFaint: { faint: 0.3, mw: 34, clip: true, paper: true },
+
+  };
+  /* 四线三格（英文 / 拼音）那一套的描边值。
+     那儿的字号是 mm、字形是「文字」，跟 1024 方格不是一套量纲，
+     所以按「字号的百分比」给，换字体、换格高都跟着缩放。
+     四线三格的行高本来就小（2~3mm 的字），描边超过字高 1/10 就糊成一团。 */
+  Z.TRACE_EM = {
+    /* 四线三格的字只有 2~3mm 高，笔画本身又细，描边得克制：
+       压在字号的 2%~4%，虚线段落给到字号的 10%~15%，不然一格格全是碎墨点。
+       全是按字号的比例给，换字体、调格高都跟着缩放。 */
+    hollow:     { w: 0.048 },
+    hollowDash: { w: 0.048, dash: [0.13, 0.09] },
+    line:       { w: 0.024 },
+    dash:       { w: 0.03, dash: [0.3, 0.18] },
+    dashDense:  { w: 0.03, dash: [0.06, 0.05] },
+    dotLine:    { w: 0.042, dash: [0, 0.16], cap: 'round' },
+    dot:        { w: 0.046, dash: [0, 0.14], cap: 'round' },
+  };
+  // 做不了的那几档（要笔心线）落到细虚线，返回 null 表示「这里没有描边」
+  Z.traceEm = (key) => Z.TRACE_EM[key] || (Z.traceVectorOnly(key) ? Z.TRACE_EM.dash : null);
+
+  // 示范格永远实心 —— 描字类型只改后面那些淡色的练习格
+  Z.traceSpec = (key) => Z.TRACE_SPEC[key] || Z.TRACE_SPEC.solid;
+
+  // 笔心线画成一条折线路径，给 <path d> 用
+  Z.polyPath = (pts) => {
+    if (!pts || !pts.length) return '';
+    let d = `M ${pts[0][0]} ${pts[0][1]}`;
+    for (let i = 1; i < pts.length; i++) d += ` L ${pts[i][0]} ${pts[i][1]}`;
+    return d;
+  };
 
   /* 拼音行样式：默认虚线格，另给下划线、小括号、长方格三档。
      作业本上常见的就这几种，格子本身不动，只换拼音行下面那条线的画法。 */
@@ -716,8 +969,9 @@
         guide: form.guide || 'tian', line: form.border_color, ink: form.font_color,
         fontCss: form.font_key || 'kaiti',
         render: Number(form.font_type) === 2 ? 'stroke' : 'text',
-        // 笔顺帖画的是笔画轮廓，描字类型对它没意义；描字帖才按选项描边
-        trace: Number(form.font_type) === 2 ? 'solid' : Z.traceOf(form.trace),
+        /* 笔顺帖画的是笔画轮廓 + 笔心线，十一档全支持；
+           描字帖走字体整字，只有描边那一类做得了，其余落回细虚线 */
+        trace: Number(form.font_type) === 2 ? Z.traceOf(form.trace) : Z.fontTraceOf(form.trace),
         foot: Z.footOf(form.foot), fixH,
         gridWidth: 180,
       },
@@ -771,6 +1025,8 @@
         kind: 'en', title: form.title, cols, cellH, pinyin: false,
         guide: 'en', line: form.border_color, ink: form.font_color,
         fontCss, gridWidth,
+        // 拼音也是 <text>，能描边；笔心线那几档做不了，落到 solid
+        trace: Z.fontTraceOf(form.trace),
         foot: Z.footOf(form.foot),
         glyph: Z.enLayout(fontCss, gridWidth / cols, cellH),
       },
@@ -816,6 +1072,7 @@
         kind: 'en', title: form.title, cols, cellH, pinyin: false,
         guide: 'en', line: form.border_color, ink: form.font_color,
         fontCss, gridWidth,
+        trace: Z.fontTraceOf(form.trace),
         foot: Z.footOf(form.foot),
         // 字号与两条内线由字体度量算（见 Z.enLayout），一页就一个字号
         glyph: Z.enLayout(fontCss, gridWidth / cols, cellH),
@@ -976,7 +1233,7 @@
         guide: form.guide || 'tian', line: form.border_color, ink: form.font_color,
         fontCss: form.font_key || 'kaiti',
         render: 'text', // 整段文字只走字体，逐笔拆一整篇课文没有意义
-        trace: Z.traceOf(form.trace),
+        trace: Z.fontTraceOf(form.trace),
         foot: Z.footOf(form.foot), fixH,
         gridWidth: 180,
       },
