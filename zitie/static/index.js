@@ -13,6 +13,7 @@
     { name: 'hanzi', title: '汉字字帖' },
     { name: 'pinyin', title: '拼音字帖' },
     { name: 'eletter', title: '英文字帖' },
+    { name: 'num', title: '数字字帖' },
     { name: 'math', title: '数学练习' },
     { name: 'stage', title: '词语文章' },
     { name: 'pen', title: '控笔练习' },

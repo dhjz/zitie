@@ -38,9 +38,11 @@
   const init = (key, defaults) => {
     if (!reg[key]) define(key, { defaults });
     const stored = Z.load(key, null);
+    // 落盘那份要剔掉输入类；但返回给表单的这份不能剔 ——
+    // 剔了页面连默认正文都拿不到，一进去就是空的，还得先报一句「先输入要练的字」
     const out = strip(key, norm(key, stored));
     if (JSON.stringify(out) !== JSON.stringify(stored)) Z.save(key, out);
-    return out;
+    return norm(key, out);
   };
 
   const set = (key, form) => { Z.save(key, strip(key, norm(key, form))); };
