@@ -525,3 +525,106 @@ html.dark .thumb svg { filter: brightness(.93); }
 /* 数学页顶栏跟随、侧栏滚动时别被挡住 */
 .side .card:first-child { position: relative; z-index: 1; }
 code { background: var(--surface-2); padding: 1px 6px; border-radius: 6px; font-size: .92em; border: 1px solid var(--line-soft); }
+
+/* ---------------- 素材合集 ----------------
+   顶栏右边一个入口，弹窗里按年级分页签。整个弹窗只有一个滚动区
+   （列表区自己滚），页头页脚的按钮永远在手边。 */
+.btn-collection { padding: 7px 14px; border-radius: 11px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+
+.modal {
+  position: fixed; inset: 0; z-index: 80;
+  display: grid; place-items: center; padding: 24px;
+  background: color-mix(in srgb, #0b1020 42%, transparent);
+  backdrop-filter: blur(3px);
+  animation: modal-fade .16s ease-out;
+}
+@keyframes modal-fade { from { opacity: 0; } to { opacity: 1; } }
+.modal-panel {
+  width: min(720px, 100%); max-height: min(78vh, 720px);
+  display: flex; flex-direction: column;
+  background: var(--surface); border-radius: var(--r-xl);
+  box-shadow: var(--shadow-lg); overflow: hidden;
+  animation: modal-pop .2s cubic-bezier(.2, .9, .3, 1.1);
+}
+@keyframes modal-pop { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
+.modal-hd {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  padding: 20px 20px 12px;
+}
+.modal-title { font-size: 17px; font-weight: 650; }
+.modal-tabs {
+  display: flex; gap: 4px; padding: 0 16px 10px; overflow-x: auto; scrollbar-width: none;
+  border-bottom: 1px solid var(--line-soft);
+}
+.modal-tabs::-webkit-scrollbar { display: none; }
+.modal-tab {
+  padding: 7px 14px; border-radius: 999px; white-space: nowrap;
+  font-size: 13px; color: var(--text-2);
+}
+.modal-tab:hover { background: var(--surface-2); color: var(--text); }
+.modal-tab.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+.modal-body {
+  flex: 1; min-height: 0; overflow-y: auto;
+  padding: 14px 20px; display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  align-content: start;
+}
+.col-item {
+  /* min-width:0 不能省：卡片里的单行预览是 nowrap 的，
+     grid 项默认 min-width:auto 会被这行字撑破容器，手机上横向溢出 */
+  min-width: 0; text-align: left; padding: 12px 14px; border-radius: var(--r);
+  background: var(--surface-2); border: 1px solid var(--line-soft);
+  transition: border-color .16s, box-shadow .16s, transform .16s;
+}
+.col-item:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+.col-item-hd { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.col-item-hd b { font-size: 14px; }
+.col-tag {
+  font-size: 11px; padding: 1px 8px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--line-soft); color: var(--text-3);
+}
+.col-item-desc { font-size: 12px; color: var(--text-3); line-height: 1.55; margin-top: 3px; }
+/* 预览用汉字间距拉开 —— 生字表挤成一坨看不清是哪些字 */
+.col-item-text {
+  margin-top: 8px; font-size: 13px; line-height: 1.9; color: var(--text-2);
+  letter-spacing: 1.5px; font-family: kaiti, 'KaiTi', serif;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* 方格视图：正文摊成一个个紧凑小方格，点一下高亮、再点取消。
+   字间距靠 gap 撑，不用 letter-spacing —— 那样点选区域会歪。 */
+.grid-view { display: block; }
+.gx-back {
+  display: block; margin-bottom: 10px; padding: 4px 10px; border-radius: 999px;
+  font-size: 12px; color: var(--text-3); background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+}
+.gx-back:hover { color: var(--text); border-color: var(--line); }
+.gx-line { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 3px; }
+.gx-cell {
+  /* 定宽定高才排得整齐：楷体各字宽不一样，flex 一撑就参差 */
+  width: 26px; height: 26px; flex: 0 0 auto;
+  display: grid; place-items: center;
+  font-family: kaiti, 'KaiTi', serif; font-size: 17px; line-height: 1;
+  color: var(--text); background: var(--surface);
+  border: 1px solid var(--line-soft); border-radius: 6px;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.gx-cell:hover { border-color: var(--accent); }
+.gx-cell.on {
+  background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600;
+}
+.modal-ft {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 20px; border-top: 1px solid var(--line-soft); background: var(--surface-2);
+}
+@media screen and (max-width: 620px) {
+  .modal { padding: 0; }
+  .modal-panel { width: 100%; max-height: 92vh; border-radius: var(--r-lg) var(--r-lg) 0 0; align-self: end; }
+  .modal-body { grid-template-columns: 1fr; }
+  /* 手机上顶栏挤，入口退成图标按钮；按钮文字和页脚那行说明都先让位 */
+  .btn-collection { padding: 7px 10px; }
+  .col-txt, .modal-ft .hint { display: none; }
+  .modal-ft { justify-content: flex-end; }
+  .gx-cell { width: 23px; height: 23px; font-size: 15px; }
+}

@@ -675,7 +675,7 @@
     };
 
     // 进来先出一版：空白页面对新用户没意义
-    Vue.onMounted(() => generate());
+    Vue.onMounted(generate);
 
     // 参数一变就重排：本地计算，几毫秒的事，比点按钮顺手
     watch(() => ({ ...form }), () => {
