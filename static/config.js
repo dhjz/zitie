@@ -9,4 +9,4 @@
    精简版资源不是手搓的，跑 `node scripts/lite.js` 生成（见 scripts/README 或仓库 README）。
    部署时可以把完整版那几个目录删掉，只留 *_lite 三个目录，
    但 IS_LITE 必须跟目录保持一致 —— 它只决定去哪读，不做存在性探测。 */
-window.IS_LITE = false;
+window.IS_LITE = true;
