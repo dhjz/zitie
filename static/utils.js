@@ -762,6 +762,42 @@
   /* 中文字体都是 1MB 起，6 个全下就是 11MB。首屏只留一个楷体，
      其余等用户真的选中（或把鼠标停到字体按钮上）再拉。 */
   const fontLoaded = new Map();
+  /* 字体里到底有没有这个字。
+     量宽度判不出来：中文字体缺字也是按一个 em 报宽度，跟真有字一模一样。
+     所以看图 —— 同一个位置画两遍，一次画这个字、一次画一个「肯定是豆腐块」的
+     私用区码位，两次的像素不一样才算真有这个字。
+     字体没装完之前一律当作有；量一次缓存一次，metricRev 一变再重算。 */
+  const glyphHas = new Map();
+  let hasCv = null;
+  Z.hasGlyph = (ch, key) => {
+    if (!ch) return true;
+    const k = (key || 'kaiti') + '|' + ch;
+    if (glyphHas.has(k)) return glyphHas.get(k);
+    if (typeof document === 'undefined' || !document.fonts) return true;
+    const stack = Z.fontStack(key || 'kaiti');
+    if (!document.fonts.check(`64px ${stack}`)) return true;
+    let ok = true;
+    try {
+      if (!hasCv) { hasCv = document.createElement('canvas'); hasCv.width = 96; hasCv.height = 80; }
+      const ctx = hasCv.getContext('2d', { willReadFrequently: true });
+      const shot = (text) => {
+        ctx.clearRect(0, 0, hasCv.width, hasCv.height);
+        ctx.font = `64px ${stack}`;
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = '#000';
+        ctx.fillText(text, 8, 8);
+        return ctx.getImageData(0, 0, hasCv.width, hasCv.height).data;
+      };
+      const a = shot(ch);
+      const b = shot('\ue000');
+      let diff = 0;
+      for (let i = 3; i < a.length; i += 4) if (Math.abs(a[i] - b[i]) > 24) diff++;
+      ok = diff > 8;
+    } catch { ok = true; }
+    glyphHas.set(k, ok);
+    return ok;
+  };
+
   Z.ensureFont = (key) => {
     if (fontLoaded.has(key)) return fontLoaded.get(key);
     const meta = Z.fontOf(key);
@@ -1134,9 +1170,9 @@
         trace: fontType === 2 ? Z.traceOf(form.trace) : Z.fontTraceOf(form.trace),
         foot: Z.footOf(form.foot), fixH,
         gridWidth: Z.gridWidthOf(cols), padX: Z.padXOf(cols),
-        /* 笔顺条的字头行就按一格高算：分页是按「一行几格」排的，
-           字头行矮一截的话整页高度会跟 perPage 对不上，底下多出一条白 */
-        barH: strip ? cellH : 0,
+        /* 笔顺条的字头行（整字 + 拼音 + 笔顺小图）跟拼音行一个高，
+           它只是个提示条，不该抢格子的位置 */
+        barH: strip ? Z.PY_H : 0,
       },
       pages: Z.paginateBlocks(blocks, perPage, () => cellCh('', ''), weight),
     };

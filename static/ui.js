@@ -209,6 +209,11 @@
       });
       // 兜底那行（笔顺分片没到时的 span）也要同一份族名列表
       const fallbackFamily = computed(() => Z.fontStack(props.fontCss || 'kaiti'));
+      // 字体里没有这个字：别让它掉到后备字体上撑大行，留空比出一团黑好看
+      const noFace = computed(() => {
+        Z.metricRev.n;
+        return props.mode === 'text' && !!props.ch && !Z.hasGlyph(props.ch, props.fontCss || 'kaiti');
+      });
       /* 这一格到底怎么画。示范格（head）一律实心 —— 孩子得先看清字形。
          字体整字那条路只能描边，所以宽笔迹那几档就用 f* 那组近似值；
          真做不出来（填充虚线、擦除画）在页面上已经置灰，兜底给个细虚线。 */
@@ -254,12 +259,12 @@
       });
       // 裁切区要唯一 id：一页几十个格子，id 撞了后面全串味
       const uid = 'zc' + Math.random().toString(36).slice(2, 8);
-      return { paths, medians, dots, box, face, paint, strokePaths, uid, fallbackFamily };
+      return { paths, medians, dots, box, face, paint, strokePaths, uid, fallbackFamily, noFace };
     },
     // 数据坐标系是 y 轴向上的 1024 方格，翻一下才是字形
     template: `
       <span class="glyph" :class="mode">
-        <svg v-if="mode === 'text' && ch" :viewBox="box" xmlns="http://www.w3.org/2000/svg">
+        <svg v-if="mode === 'text' && ch && !noFace" :viewBox="box" xmlns="http://www.w3.org/2000/svg">
           <!-- 示范格（head）永远是实心深色，孩子得先看清字形；
                描字类型只改后面那些淡色的练习格 -->
           <text x="512" :y="face.y" :font-size="face.size" :font-family="face.family"
@@ -298,7 +303,7 @@
             </g>
           </g>
         </svg>
-        <span v-else-if="ch" class="glyph-text" :style="{ color: ink, fontFamily: fallbackFamily }">{{ ch }}</span>
+        <span v-else-if="ch && !noFace" class="glyph-text" :style="{ color: ink, fontFamily: fallbackFamily }">{{ ch }}</span>
       </span>`,
   };
 
@@ -651,28 +656,41 @@
     },
     setup(props) {
       // 笔画数是分片懒加载的，跟 ZGlyph 一样挂一个 strokeRev 当触发器：
-      // 分片到齐之前按一笔画，到了自己补齐
+      // 分片到齐之前先空着，到了自己补齐
       const n = computed(() => {
         Z.strokeRev.n;
         return Math.max(1, Z.strokesOf(props.cell.ch).length);
       });
-      // 小图的边长：整字比笔顺小图大一圈，得先看清整字。
-      // 一条字头就一格高，笔顺多了（二十几画）得自己缩一档才排得下一行
-      const side = computed(() => Math.round(props.barH * (n.value > 16 ? 0.36 : 0.5) * 100) / 100);
-      const head = computed(() => Math.round(props.barH * 0.64 * 100) / 100);
-      return { n, side, head };
+      // 字帖的字体要等字体文件到齐才量得准，量完 metricRev 变一次就重排
+      const missing = computed(() => {
+        Z.metricRev.n;
+        return !Z.hasGlyph(props.cell.ch, props.fontCss || 'kaiti');
+      });
+      // 整字、拼音、小图三样一样高：一条窄提示条，整字没必要顶满一格
+      const head = computed(() => Math.round(props.barH * 0.86 * 100) / 100);
+      // 笔画数据没到（或字体缺这个字）就先空着，别让占位文字把窄行撑开
+      const noStrokes = computed(() => {
+        Z.strokeRev.n;
+        return !Z.strokesOf(props.cell.ch).length;
+      });
+      return { n, side: head, head, missing, noStrokes };
     },
     template: `
-      <div class="cell-cn headbar" :style="{ minHeight: barH + 'mm' }">
+      <div class="cell-cn headbar" :style="{ height: barH + 'mm' }">
         <div class="hb-head">
-          <span class="hb-ch" :style="{ width: head + 'mm', height: head + 'mm' }">
+          <!-- 字体里缺这个字就留个空，不然会掉到宋体、还把窄行顶高 -->
+          <span v-if="missing" class="hb-ch hb-ch-none" :style="{ width: head + 'mm', height: head + 'mm' }">{{ cell.ch }}</span>
+          <span v-else class="hb-ch" :style="{ width: head + 'mm', height: head + 'mm' }">
             <z-glyph :ch="cell.ch" ink="#262c36" :mode="mode" :font-css="fontCss" :trace="'solid'" head />
           </span>
           <span v-if="cell.py" class="hb-py">{{ cell.py }}</span>
         </div>
-        <div class="hb-strokes">
+        <!-- 一画一个字不用铺小图，整字本身就说明了；不到齐时先占个空位，别让行变高 -->
+        <div class="hb-strokes" v-if="n > 1">
           <span v-for="i in n" :key="i" class="hb-stroke" :style="{ width: side + 'mm', height: side + 'mm' }">
-            <z-glyph :ch="cell.ch" :up-to="i" mode="stroke" :ink="ink" :pad="0" />
+            <svg class="hb-blank" v-if="missing || noStrokes" viewBox="0 0 1024 1024"
+              xmlns="http://www.w3.org/2000/svg"></svg>
+            <z-glyph v-else :ch="cell.ch" :up-to="i" mode="stroke" :ink="ink" :pad="0" />
           </span>
         </div>
       </div>`,
@@ -837,7 +855,7 @@
             :style="[gridStyle, { '--cell-line': doc.line }]">
             <template v-for="(c, i) in cells" :key="i">
               <z-cell-head v-if="c.kind === 'headbar'" :cell="c" :ink="doc.ink" :mode="doc.render || 'text'"
-                :font-css="fontCss" :bar-h="doc.barH || 11"></z-cell-head>
+                :font-css="fontCss" :bar-h="doc.pyH || 7.4"></z-cell-head>
               <z-cell-cn v-else :cell="c" :pinyin="doc.pinyin"
                 :guide="doc.guide || 'tian'" :ink="doc.ink" :mode="doc.render || 'text'"
                 :trace="doc.trace || 'solid'" :py-style="doc.pyStyle || 'grid'"
