@@ -8,6 +8,7 @@
     title: '练习纸',
     guide: 'tian',   // 格型，跟汉字字帖同一套，另加 en（四线三格）
     pinyin: 0,
+    py_style: 'grid',
     num: 2,
     foot: 0,
     border_color: 'rgb(56, 152, 219)',
@@ -30,10 +31,11 @@
       const { form, doc, pages, items, generate, print } = gen;
       const guideOptions = Z.BLANK_GUIDES;
       const footOptions = Z.FOOT_OPTIONS;
+      const pyStyles = Z.PY_STYLES;
       // 四线三格本来就没有「拼音行」这回事，那条选项得藏起来
       const isEn = Vue.computed(() => form.guide === 'en');
       return { ...gen, form, doc, pages, items, generate, print,
-        guideOptions, footOptions, isEn, borderColors: Z.BORDER_COLORS };
+        guideOptions, footOptions, pyStyles, isEn, borderColors: Z.BORDER_COLORS };
     },
     template: `
       <div class="split">
@@ -44,6 +46,9 @@
               <z-field label="格型"><z-seg v-model="form.guide" :options="guideOptions"></z-seg></z-field>
               <z-field v-if="!isEn" label="拼音">
                 <z-seg v-model="form.pinyin" :options="[{ v: 1, label: '加拼音行' }, { v: 0, label: '不加' }]"></z-seg>
+              </z-field>
+              <z-field v-if="!isEn && Number(form.pinyin)" label="拼音格">
+                <z-seg v-model="form.py_style" :options="pyStyles"></z-seg>
               </z-field>
               <z-field label="页数"><z-num v-model="form.num" :min="1" :max="30" suffix="张"></z-num></z-field>
               <z-field label="页脚" tip="姓名 / 班级 / 日期">

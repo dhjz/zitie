@@ -9,6 +9,7 @@
     content: '春眠不觉晓，处处闻啼鸟。\n夜来风雨声，花落知多少。',
     font_key: 'kaiti',
     pinyin: 0,
+    py_style: 'grid',
     guide: 'tian',
     trace: 1,
     fix: 0,
@@ -30,6 +31,7 @@
       const guideOptions = Z.GUIDE_OPTIONS;
       const traceOptions = Z.TRACE_OPTIONS;
       const footOptions = Z.FOOT_OPTIONS;
+      const pyStyles = Z.PY_STYLES;
 
       // 一年级课本里的常用篇目，点一下直接填进去
       const presets = [
@@ -41,7 +43,8 @@
       const usePreset = (p) => { form.content = p.text; generate(); };
 
       return { ...gen, form, doc, pages, items, generate, print,
-        charCount, colOptions, guideOptions, traceOptions, footOptions, presets, usePreset,
+        charCount, colOptions, guideOptions, traceOptions, footOptions, pyStyles,
+        presets, usePreset,
         fonts: Z.ZH_FONTS, borderColors: Z.BORDER_COLORS, inkColors: Z.INK_COLORS };
     },
     template: `
@@ -54,6 +57,7 @@
                 <textarea class="input" v-model="form.content" rows="5" style="letter-spacing:0"
                   placeholder="课文、古诗、词语表都行；敲回车就是换行"></textarea>
                 <div class="hint">一行最多 {{ form.cols }} 格，超了自动折行；回车换行不会被拆。</div>
+                <div class="hint">想留一行空白自己写，就单起一行填 <b>□</b>，填几个空几行。</div>
                 <div class="chip-list">
                   <button v-for="p in presets" :key="p.name" class="chip" @click="usePreset(p)">{{ p.name }}</button>
                 </div>
@@ -63,6 +67,9 @@
               <z-field label="字体"><z-fonts v-model="form.font_key" :fonts="fonts" sample="春眠不觉"></z-fonts></z-field>
               <z-field label="拼音">
                 <z-seg v-model="form.pinyin" :options="[{ v: 1, label: '有拼音' }, { v: 0, label: '无拼音' }]"></z-seg>
+              </z-field>
+              <z-field v-if="Number(form.pinyin)" label="拼音格">
+                <z-seg v-model="form.py_style" :options="pyStyles"></z-seg>
               </z-field>
               <z-field label="订正格" tip="每页底部留一行「改错」区">
                 <z-seg v-model="form.fix" :options="[{ v: 0, label: '不要' }, { v: 1, label: '要' }]"></z-seg>

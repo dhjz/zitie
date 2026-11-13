@@ -592,6 +592,29 @@
   // 1 实心（填色）/ 2 空心（描边）/ 3 细虚线（描边虚线）/ 4 圆点（点线描边）
   Z.traceOf = (v) => ({ 2: 'hollow', 3: 'dash', 4: 'dot' }[Number(v)] || 'solid');
 
+  /* 拼音行样式：默认虚线格，另给下划线、小括号、长方格三档。
+     作业本上常见的就这几种，格子本身不动，只换拼音行下面那条线的画法。 */
+  Z.PY_STYLES = [
+    { v: 'grid', label: '虚线格' }, { v: 'under', label: '下划线' },
+    { v: 'paren', label: '小括号' }, { v: 'box', label: '长方格' },
+  ];
+  Z.pyStyleOf = (v) => (Z.PY_STYLES.some((o) => o.v === v) ? v : 'grid');
+
+  /* 间隔描字：一行一个记号，描/空自己排。
+     「描描空」= 第一行示范、第二行描红、第三行留白，比全局的「几行描几行空」
+     灵活 —— 字帖的手感全在这种逐行节奏上。 */
+  Z.ROW_PATTERN_MAX = 8;
+  Z.parseRowPattern = (raw) => {
+    const out = [];
+    for (const c of String(raw || '')) {
+      if ('描df1'.indexOf(c) >= 0) out.push('t');
+      else if ('空kb0'.indexOf(c) >= 0) out.push('b');
+      if (out.length >= Z.ROW_PATTERN_MAX) break;
+    }
+    // 一行都不描的时候没意义（整块全是空行），那就当没填
+    return out.some((t) => t === 't') ? out : [];
+  };
+
   // 页脚 0 无 / 1 姓名日期 / 2 姓名班级日期
   Z.FOOT_OPTIONS = [
     { v: 0, label: '不要' }, { v: 1, label: '姓名日期' }, { v: 2, label: '姓名班级日期' },
@@ -632,12 +655,25 @@
     const { cellH, perPage } = grid;
     const fillRow = Z.clamp(form.fill_row, 0, 5);
     const blankRow = Z.clamp(form.blank_row, 0, 5);
-    // 整段一起注音，多音字才判得准；只留汉字位置的音
-    const pyAll = Z.pinyinList(form.content).filter((x) => x);
+    // 整段一起注音，多音字才判得准。pinyinList 跟原串逐位对齐（标点处是空串），
+    // 按位置取才不会错位 —— 早先按「第几个不重复的字」取，重复字一多就串行。
+    const pyAll = Z.pinyinList(form.content);
+    let pk = 0;
+    const fix = form.pinyin_fix || {};
     const pyOf = new Map();
-    for (const ch of chars) if (!pyOf.has(ch)) pyOf.set(ch, pyAll[pyOf.size] || Z.pinyinOf(ch));
+    for (const ch of String(form.content)) {
+      if (!/[\u4e00-\u9fa5]/.test(ch)) continue;
+      const py = pyAll[pk++] || '';
+      if (pyOf.has(ch)) continue;
+      // 逐字改过的那批优先 —— pinyin-pro 判错的时候总得给个手动补救的口子
+      const own = Object.prototype.hasOwnProperty.call(fix, ch) ? fix[ch] : null;
+      pyOf.set(ch, own == null ? (py || Z.pinyinOf(ch)) : own);
+    }
     const blank = () => cellCh('', '');
     const blocks = [];
+    // 填了模式就按模式逐行排，没填才用「几行描 + 几行空」。
+    // 笔顺帖一格里是一笔，模式那种「一行整字」跟它不是一个东西，不掺和。
+    const pattern = Number(form.font_type) === 2 ? [] : Z.parseRowPattern(form.row_pattern);
 
     for (const ch of chars) {
       const py = pyOf.get(ch) || '';
@@ -649,7 +685,19 @@
         block.push(cellCh(ch, py, true));
         for (let i = 1; i <= n; i++) block.push(cellCh(ch, '', false, i));
         padToRow(block, cols, () => cellCh(ch, '', false));
-        for (let r = 0; r < fillRow; r++) for (let c = 0; c < cols; c++) block.push(cellCh(ch, '', false));
+      } else if (pattern.length) {
+        // 模式的第一个描字行当示范行（第一个格子深色），后面的描行都是淡色的。
+        // 不以「空」开头的时候它就是第一行；开头留白也不至于整块没有示范。
+        const headRow = pattern.indexOf('t');
+        pattern.forEach((t, r) => {
+          for (let c = 0; c < cols; c++) {
+            const head = t === 't' && r === headRow && c === 0;
+            if (t === 'b') block.push(blank());
+            else block.push(cellCh(ch, head ? py : '', head));
+          }
+        });
+        blocks.push(block);
+        continue;
       } else {
         block.push(cellCh(ch, py, true));
         for (let i = 1; i < fillRow * cols; i++) block.push(cellCh(ch, '', false));
@@ -664,6 +712,7 @@
     return {
       doc: {
         kind: 'cn', title: form.title, cols, cellH, pinyin, pyH: Z.PY_H,
+        pyStyle: Z.pyStyleOf(form.py_style),
         guide: form.guide || 'tian', line: form.border_color, ink: form.font_color,
         fontCss: form.font_key || 'kaiti',
         render: Number(form.font_type) === 2 ? 'stroke' : 'text',
@@ -802,28 +851,49 @@
   /* 词语文章：整字渲染，按列铺
      换行交回给用户 —— 他敲了回车就是换行，没敲就一直排下去。
      硬按 12 格一刀切会把词语劈成两半（「春眠」拆到两行）。 */
+  /* 空段符号：一整行只写 □（或 ☐、▢），那一行就留成空白格，
+     想在哪断开、空多高都在正文里说清楚，不用靠分页碰运气。 */
+  const BLANK_CHARS = '□☐▢';
+  Z.BLANK_MARK = BLANK_CHARS[0];
+  const isBlankLine = (line) => {
+    const t = String(line).trim();
+    return t.length > 0 && Array.from(t).every((c) => BLANK_CHARS.indexOf(c) >= 0);
+  };
+
   Z.genStage = (form) => {
     const text = String(form.content || '');
-    if (!text.replace(/\s/g, '')) return null;
+    if (!text.replace(/[\s□☐▢]/g, '')) return null;
     const cols = Z.clamp(form.cols || 12, 6, 16);
     const pinyin = !!form.pinyin;
     const fixH = Z.fixH(form.fix);
     const grid = Z.gridFor(cols, 15, pinyin, fixH);
     const { cellH, perPage } = grid;
+    // 拼音跟正文逐位对齐（标点、空格、□ 位置都是空串），所以下面用绝对下标取，
+    // 不能自己数「第几个汉字」—— 空段一插进来就全串位了
     const pys = Z.pinyinList(text);
     const blank = { ch: '', py: '', head: false, upTo: null };
     const cells = [];
-    let pyIdx = 0;
+    let at = 0; // 当前行首在全文里的位置
 
     for (const line of text.split(/\r?\n/)) {
+      const start = at;
+      at += line.length + 1; // +1 是那个换行符
+      // 空段：写几个 □ 就空几行，自己填字用
+      if (isBlankLine(line)) {
+        for (let r = 0; r < Array.from(line.trim()).length; r++) {
+          cells.push(...Array.from({ length: cols }, () => blank));
+        }
+        continue;
+      }
       const row = [];
-      for (const ch of line) {
-        if (/\s/.test(ch)) continue;
+      // 按 UTF-16 下标走，跟 pinyinList（内部是 split('')）的位次同一套
+      line.split('').forEach((ch, i) => {
+        if (/\s/.test(ch) || BLANK_CHARS.indexOf(ch) >= 0) return;
         // 一行塞不下就按列数硬折，这是用户自己也看得见的
         if (row.length >= cols) { cells.push(...row); row.length = 0; }
         const isZh = /[\u4e00-\u9fa5]/.test(ch);
-        row.push({ ch, py: isZh ? (pys[pyIdx++] || '') : '', head: false, upTo: null });
-      }
+        row.push({ ch, py: isZh ? (pys[start + i] || '') : '', head: false, upTo: null });
+      });
       if (!row.length) continue;
       // 每一行末尾补齐，下一行一定从最左边开始
       while (row.length < cols) row.push(blank);
@@ -832,6 +902,7 @@
     return {
       doc: {
         kind: 'cn', title: form.title, cols, cellH, pinyin, pyH: Z.PY_H,
+        pyStyle: Z.pyStyleOf(form.py_style),
         guide: form.guide || 'tian', line: form.border_color, ink: form.font_color,
         fontCss: form.font_key || 'kaiti',
         render: 'text', // 整段文字只走字体，逐笔拆一整篇课文没有意义
@@ -956,7 +1027,8 @@
     const { cellH, perPage } = grid;
     const page = Array.from({ length: perPage }, () => ({ ch: '', py: '', head: false }));
     return {
-      doc: { kind: 'cn', title: form.title, cols, cellH, pinyin, pyH: Z.PY_H, guide,
+      doc: { kind: 'cn', title: form.title, cols, cellH, pinyin, pyH: Z.PY_H,
+        pyStyle: Z.pyStyleOf(form.py_style), guide,
         line: form.border_color, ink: form.font_color, fontCss: 'kaiti', render: 'text',
         foot: Z.footOf(form.foot), gridWidth: 180 },
       pages: Array.from({ length: num }, () => page),

@@ -201,6 +201,17 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.9; letter-sp
 .btn-primary:hover { box-shadow: 0 14px 30px color-mix(in srgb, var(--accent) 42%, transparent); }
 .btn:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
 .btn-block { width: 100%; }
+.btn-sm { padding: 6px 12px; border-radius: 10px; font-size: 13px; }
+
+/* 逐字注音：一堆小格子，一个汉字配一个拼音输入框。
+   一行放两三个，多了挤成一条缝，手机上不好点 */
+.fix-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.fix-item {
+  display: flex; align-items: center; gap: 5px; padding: 4px 6px;
+  background: var(--surface-2); border: 1px solid var(--line-soft); border-radius: 9px;
+}
+.fix-item b { font-family: kaiti, 'KaiTi', serif; font-size: 16px; font-weight: 500; }
+.fix-input { width: 74px; padding: 3px 6px; font-size: 13px; text-align: center; letter-spacing: 0; }
 
 .hint { font-size: 12px; color: var(--text-3); line-height: 1.6; }
 .row-between { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -382,6 +393,23 @@ html.dark .thumb svg { filter: brightness(.93); }
   display: grid; place-items: center; position: relative;
 }
 .cell-py span { font-family: pinyinok, serif; font-size: 16px; line-height: 1; color: #444; letter-spacing: .5px; }
+/* 拼音行样式四档。作业本上见过的就这几种，格子本身不动，只换那条线的画法：
+   grid 虚线格（默认，整行一条虚线当底）；under 下划线（离字远一点）；
+   paren 小括号（左右各一撇，一音节一组）；box 长方格（左右各一条竖线）。 */
+.cell-py.py-under { border-bottom-style: solid; border-bottom-color: color-mix(in srgb, currentColor 60%, #fff); }
+.cell-py.py-paren { border-bottom: 0; }
+.cell-py.py-paren::before, .cell-py.py-paren::after {
+  content: ''; position: absolute; top: 18%; bottom: 18%; width: 2.4mm;
+  border: 1px solid color-mix(in srgb, currentColor 40%, #fff);
+}
+.cell-py.py-paren::before { left: 1.6mm; border-right: 0; border-radius: 1.4mm 0 0 1.4mm; }
+.cell-py.py-paren::after { right: 1.6mm; border-left: 0; border-radius: 0 1.4mm 1.4mm 0; }
+.cell-py.py-box { border-bottom: 0; }
+/* 长方格的内框上下各留 1mm，不然内框上下边跟格子本来的边框叠成一条粗线 */
+.cell-py.py-box::before {
+  content: ''; position: absolute; left: 1.2mm; right: 1.2mm; top: 1mm; bottom: 1mm;
+  border: 1px solid color-mix(in srgb, currentColor 34%, #fff); border-radius: .6mm;
+}
 .cell-ch { position: relative; flex: 1 1 auto; }
 .cell-guide { position: absolute; inset: 0; pointer-events: none; }
 /* 田字格：十字虚线；米字格再加对角线；回宫格加内框。
@@ -594,6 +622,25 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 6px; font-
 /* 方格视图：正文摊成一个个紧凑小方格，点一下高亮、再点取消。
    字间距靠 gap 撑，不用 letter-spacing —— 那样点选区域会歪。 */
 .grid-view { display: block; }
+/* 课文生字：一册里按课列下来，一课一行。左边课次，右边生字串 ——
+   生字串用楷体、字距拉开，扫一眼就知道这一课有哪些字。 */
+.book-view { display: block; }
+.ln-item {
+  display: flex; align-items: baseline; gap: 10px; width: 100%; min-width: 0;
+  text-align: left; padding: 7px 12px; margin-bottom: 6px; border-radius: var(--r-sm);
+  background: var(--surface-2); border: 1px solid var(--line-soft);
+  transition: border-color .14s, transform .14s;
+}
+.ln-item:hover { border-color: var(--accent); transform: translateX(2px); }
+.ln-name {
+  flex: 0 0 auto; font-size: 13px; color: var(--text-2); max-width: 46%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ln-chars {
+  flex: 1 1 auto; min-width: 0; font-family: kaiti, 'KaiTi', serif; font-size: 15px;
+  letter-spacing: 2px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
 .gx-back {
   display: block; margin-bottom: 10px; padding: 4px 10px; border-radius: 999px;
   font-size: 12px; color: var(--text-3); background: var(--surface-2);
@@ -627,4 +674,7 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 6px; font-
   .col-txt, .modal-ft .hint { display: none; }
   .modal-ft { justify-content: flex-end; }
   .gx-cell { width: 23px; height: 23px; font-size: 15px; }
+  /* 手机上横向挤：课次占六成，生字串自己往右省略，别把课次挤成三行 */
+  .ln-name { max-width: 58%; }
+  .ln-chars { letter-spacing: 1px; }
 }
