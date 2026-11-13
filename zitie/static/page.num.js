@@ -126,6 +126,8 @@
 
         <z-preview :doc="doc" :pages="pages" :items="items" @print="print" @regen="generate"
           empty-text="左边输入数字，点生成"></z-preview>
+
+        <z-mbar></z-mbar>
       </div>`,
   };
 })();

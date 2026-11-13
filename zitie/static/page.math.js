@@ -118,6 +118,8 @@
 
         <z-preview :doc="doc" :pages="pages" :items="items" @print="print" @regen="generate"
           empty-text="设好范围，点「换一批题」"></z-preview>
+
+        <z-mbar></z-mbar>
       </div>`,
   };
 })();

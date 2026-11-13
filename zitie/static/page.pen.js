@@ -167,6 +167,8 @@
 
         <z-preview :doc="doc" :pages="pages" :items="[]" @print="print" @regen="generate"
           empty-text="左边点几个图形"></z-preview>
+
+        <z-mbar></z-mbar>
       </div>`,
   };
 })();

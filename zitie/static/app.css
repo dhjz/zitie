@@ -119,7 +119,10 @@ a { color: inherit; text-decoration: none; }
 /* ---------------- 布局 ---------------- */
 .wrap { max-width: 1440px; margin: 0 auto; padding: 22px 20px 80px; }
 .split { display: grid; grid-template-columns: 372px minmax(0, 1fr); gap: 22px; align-items: start; }
-@media screen and (max-width: 1080px) { .split { grid-template-columns: 1fr; } }
+/* 折成一栏时必须 minmax(0, 1fr)：1fr 的默认最小宽度是 min-content，
+   而预览里那张 210mm 的纸 min-content 就有 700 多像素 —— 平板竖屏（768）
+   会把整栏撑得比屏幕还宽，页面横向溢出。 */
+@media screen and (max-width: 1080px) { .split { grid-template-columns: minmax(0, 1fr); } }
 
 .card {
   background: var(--surface);
@@ -337,7 +340,12 @@ html.dark .thumb svg { filter: brightness(.93); }
   min-height: 520px;
 }
 .empty { text-align: center; color: var(--text-3); padding: 90px 20px; }
+
 .empty-ico { font-size: 40px; margin-bottom: 12px; opacity: .7; }
+/* 纸张缩放：--sheet-zoom 由 index.js 量完「210mm = 多少 px」再按视口反算。
+   桌面够宽时算出来是 1（不缩），768 这类平板宽度会自动收到 0.9 左右，
+   360/414 的手机宽度刚好一张纸铺满。只作用于屏幕 —— 打印必须是 1:1。 */
+@media screen { .sheet { zoom: var(--sheet-zoom, 1); } }
 
 /* A4 纸张 */
 .sheet {
@@ -514,6 +522,10 @@ html.dark .thumb svg { filter: brightness(.93); }
   .split { display: block; }
   .card { border: 0; box-shadow: none; border-radius: 0; }
   .preview-body { padding: 0; background: none; gap: 0; display: block; min-height: 0; }
+  /* 手机上可能正停在「设置」Tab，打印得照样出纸（.side 仍隐藏） */
+  .split > .preview { display: block !important; }
+  .mbar { display: none !important; }
+  .sheet { zoom: 1 !important; }
   .sheet {
     width: 210mm; height: 297mm; box-shadow: none; border-radius: 0;
     margin: 0; page-break-after: always; break-after: page; overflow: hidden;
@@ -524,16 +536,129 @@ html.dark .thumb svg { filter: brightness(.93); }
 }
 
 /* 移动端：只作用于屏幕。若不加 screen，打印预览的宽度也算窄屏，
-   页面会被 zoom 缩到 46%，打出来只有半页大。 */
+   页面会被 zoom 缩到 46%，打出来只有半页大。
+
+   这一块分三件事：
+   1. 适配层 —— 手指按得准（触控目标 ≥44px）、iOS 聚焦不抬页（输入 16px）、
+      刘海机不贴边（env(safe-area-inset-*)）、纸张按屏宽铺满。
+   2. 设置 / 预览 双 Tab —— .split 的两栏在手机上轮流显示，底部固定一条操作栏，
+      改参数和看纸不用来回滑（见 ui.js 的 ZMbar）。
+   3. 多行选项横滑 —— 选项多的控件带 .opt-many，不折成几行，横着滑。 */
 @media screen and (max-width: 760px) {
-  .wrap { padding: 14px 12px 60px; }
+  .wrap { padding: 14px 12px calc(88px + env(safe-area-inset-bottom)); }
   .hero { padding: 30px 22px; }
   .hero h1 { font-size: 25px; }
-  .sheet { zoom: .46; }
   .preview-body { padding: 14px 6px 24px; }
   .field { grid-template-columns: 60px minmax(0, 1fr); }
   .cards.feat { grid-template-columns: 1fr; gap: 14px; }
   .thumb { height: 172px; }
+
+  /* 顶栏两行：品牌 + 图标按钮占一行，导航独占一行。
+     一行硬塞下去 nav 会被挤成一条缝（390px 宽里 brand 要 130、四个按钮要 190），
+     8 个入口只剩几十像素，等于全藏了。 */
+  .topbar-in {
+    height: auto; flex-wrap: wrap; gap: 6px 8px; padding: 6px 12px;
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+  .nav { order: 3; flex: 1 0 100%; gap: 2px; padding-bottom: 2px; }
+  .nav-item { padding: 7px 11px; }
+  .topbar-right { margin-left: auto; gap: 4px; }
+  .brand-sub { display: none; }
+  /* 320 宽（iPhone SE 一代）品牌 + 四个按钮刚好塞不下，收一档尺寸挤回一行，
+     别让顶栏占掉三行 */
+  @media screen and (max-width: 360px) {
+    .brand { padding: 2px 4px; gap: 6px; }
+    .brand-logo { width: 30px; height: 30px; font-size: 16px; border-radius: 9px; }
+    .brand-name { font-size: 15px; }
+    .topbar-in { gap: 4px 6px; padding: 6px 10px; }
+    .topbar-right { gap: 3px; }
+    .icon-btn { width: 38px; height: 38px; font-size: 14px; }
+    .btn-collection { padding: 6px 8px; }
+  }
+
+  /* 导航 8 个入口本来就滑不完，右边渐隐一下，暗示「后面还有」 */
+  .nav {
+    scroll-snap-type: x proximity;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
+  }
+  .nav-item { scroll-snap-align: center; }
+
+  /* 触控目标抬到 40~44：33px 的分段按钮手指按偏是常事 */
+  .seg button { min-height: 38px; padding: 8px 13px; }
+  .chip { min-height: 40px; }
+  .chip.font-chip { min-height: 42px; }
+  .icon-btn { width: 42px; height: 42px; }
+  .btn { min-height: 44px; }
+  .btn-sm { min-height: 38px; }
+  .fix-input { min-height: 34px; }
+  .pen-pick { min-height: 46px; }
+  /* 输入框不到 16px，iOS Safari 聚焦就整页放大且退不回来 */
+  .input, textarea.input, .fix-input, .num .input { font-size: 16px; }
+  .fix-input { width: 86px; font-size: 15px; }
+  .num .input { width: 72px; }
+
+  /* 双 Tab：默认只看设置，点「预览」才看纸。桌面端两条规则不生效 */
+  html[data-mpane="form"] .split > .preview,
+  html[data-mpane="preview"] .split > .side { display: none; }
+  /* 预览头在手机上不吸顶（顶栏已经两行了），操作按钮也交给底部栏 —— 别重复两套 */
+  .preview-hd { position: static; }
+  .preview-hd .row-between { display: none; }
+
+  /* 选项多到一行放不下，就横着滑，别折成三行把设置区拉长。
+     右边一道渐隐当「后面还有」的暗示，否则看着像被切掉。 */
+  .opt-many {
+    max-width: 100%; width: 100%; flex-wrap: nowrap;
+    overflow-x: auto; overflow-y: hidden;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 26px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 26px), transparent);
+  }
+  /* 末项后留出跟渐隐一样宽的空位：滑到最右时最后一个选项正好落在遮罩外，
+     不至于永远「看着像被切了半截」 */
+  .opt-many::after { content: ''; flex: 0 0 26px; }
+  .opt-many::-webkit-scrollbar { display: none; }
+  .opt-many > * { flex: 0 0 auto; scroll-snap-align: start; }
+}
+
+/* ---------------- 手机底部操作栏 ----------------
+   只在窄屏出现：左边切「设置 / 预览」，右边常驻打印。
+   打印入口不再被长表单埋在最底下。 */
+.mbar { display: none; }
+@media screen and (max-width: 760px) {
+  .mbar {
+    display: flex; align-items: center; gap: 10px;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter: blur(14px); border-top: 1px solid var(--line-soft);
+    box-shadow: 0 -6px 20px rgba(20, 32, 52, .08);
+  }
+  .mbar-tabs {
+    display: flex; gap: 3px; padding: 3px;
+    background: var(--surface-2); border: 1px solid var(--line-soft); border-radius: 12px;
+  }
+  .mbar-tab {
+    min-height: 40px; padding: 8px 14px; border-radius: 9px;
+    font-size: 14px; color: var(--text-2); white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .mbar-tab.on { background: var(--surface); color: var(--accent); font-weight: 650; box-shadow: var(--shadow-sm); }
+  html.dark .mbar-tab.on { background: var(--accent-soft); }
+  .mbar-n { font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+  /* 底部栏只有一行预算（360 宽约 336px），三个按钮谁都不许换行 */
+  .mbar .btn { white-space: nowrap; padding: 0 14px; }
+  .mbar .btn-primary { flex: 1 1 auto; padding: 0 12px; }
+  .mbar-print-short { display: none; }
+  /* 太窄时打印按钮退成「打印」，省下 60px 给左边三个 */
+  @media screen and (max-width: 380px) {
+    .mbar-print-long { display: none; }
+    .mbar-print-short { display: inline; }
+    .mbar-tab { padding: 8px 11px; font-size: 13px; }
+    .mbar-gen { padding: 0 11px !important; }
+  }
 }
 
 /* ---------------- 轻提示 ---------------- */

@@ -20,13 +20,24 @@
       </div>`,
   };
 
+  /* 选项一多（4 个以上）就不该折行 —— 手机上折成两三行，设置区凭空长高一截。
+     这类控件统一带 .opt-many，窄屏下改成一行横滑（CSS 见 app.css）。
+     阈值取 4：3 档（如页脚「不要 / 姓名日期 / 姓名班级日期」）一行放得下，
+     4 档的拼音格样式、6 个字体就已经开始塌行了。 */
+  const MANY = 4;
+  const manyCls = (n) => (n >= MANY ? ' opt-many' : '');
+
   // 分段选择器。选项可以带 disabled，点不动的那种（笔顺只对楷体有效）
   G.ZSeg = {
     name: 'ZSeg',
     props: { modelValue: [String, Number, Boolean], options: { type: Array, default: () => [] } },
     emits: ['update:modelValue'],
+    setup(props) {
+      const cls = computed(() => 'seg' + manyCls(props.options.length));
+      return { cls };
+    },
     template: `
-      <div class="seg">
+      <div :class="cls">
         <button v-for="o in options" :key="String(o.v)" type="button"
           :class="{ on: o.v === modelValue, off: o.disabled }" :title="o.tip || ''"
           :disabled="!!o.disabled"
@@ -53,10 +64,11 @@
         emit('update:modelValue', `rgb(${r}, ${g}, ${b})`);
       };
       const isCustom = computed(() => !props.palette.some((p) => p.value === props.modelValue));
-      return { hex, custom, isCustom };
+      const cls = computed(() => 'chip-list' + manyCls(props.palette.length));
+      return { hex, custom, isCustom, cls };
     },
     template: `
-      <div class="chip-list">
+      <div :class="cls">
         <button v-for="c in palette" :key="c.value" type="button" class="chip"
           :class="{ on: modelValue === c.value }" @click="$emit('update:modelValue', c.value)">
           <i :style="{ background: c.value }"></i>{{ c.name }}
@@ -84,10 +96,11 @@
         props.fonts.forEach((f) => { if (f.eager || f.key === props.modelValue) warm(f.key); });
       });
       Vue.watch(() => props.modelValue, (k) => k && warm(k));
-      return { warm, pick, styleOf };
+      const cls = computed(() => 'chip-list' + manyCls(props.fonts.length));
+      return { warm, pick, styleOf, cls };
     },
     template: `
-      <div class="chip-list">
+      <div :class="cls">
         <button v-for="f in fonts" :key="f.key" type="button" class="chip font-chip"
           :class="{ on: modelValue === f.key }" :style="styleOf(f)"
           :title="f.name" @mouseenter="warm(f.key)" @focus="warm(f.key)" @click="pick(f.key)">{{ sample }}</button>
@@ -859,6 +872,53 @@
       </div>`,
   };
 
+  /* ---------------- 手机底部操作栏 ----------------
+     窄屏下设置区和预览区轮流显示（CSS 认 html[data-mpane]），
+     这条栏负责切换，并把「生成 / 打印」放到拇指够得着的地方。
+
+     状态放模块级：八个页面的模板只要各插一个 <z-mbar>，不用各自维护一份 pane。
+     具体动作由 useGen 注册进来 —— 它本来就管着 generate / print / 页数。 */
+  const mpane = Vue.reactive({ pane: 'form', count: 0, print: null, regen: null });
+  const setPane = (v) => {
+    const changed = mpane.pane !== v;
+    mpane.pane = v;
+    document.documentElement.dataset.mpane = v;
+    // 切栏回到顶部：设置区滚到底时点「预览」，不归位就落在纸的中间
+    if (changed && window.scrollY > 0) window.scrollTo({ top: 0, behavior: 'smooth' });
+    // 纸槽刚显出来才有宽度，缩放比要重算一次，否则停在「设置」时估的那个偏小
+    if (changed && Z.fitSheet) Vue.nextTick(Z.fitSheet);
+  };
+  setPane('form');
+
+  // 名字写成 ZMbar（不是 ZMBar）：Vue 的连字符化只在大写字母前加 -，
+  // 结果是 z-m-bar，模板里得写 <z-m-bar>，跟其它组件的两段式不一致
+  G.ZMbar = {
+    name: 'ZMbar',
+    setup() {
+      const toPreview = () => setPane('preview');
+      // 改完参数点「生成」直接跳去看纸，主链路就两下
+      const gen = () => { if (mpane.regen) mpane.regen(); toPreview(); };
+      const print = () => {
+        if (mpane.pane !== 'preview') toPreview();
+        Vue.nextTick(() => mpane.print && mpane.print());
+      };
+      return { mpane, setPane, gen, print, toPreview };
+    },
+    template: `
+      <div class="mbar no-print">
+        <div class="mbar-tabs">
+          <button class="mbar-tab" :class="{ on: mpane.pane === 'form' }" @click="setPane('form')">设置</button>
+          <button class="mbar-tab" :class="{ on: mpane.pane === 'preview' }" @click="toPreview">
+            预览<span v-if="mpane.count" class="mbar-n">{{ mpane.count }} 页</span>
+          </button>
+        </div>
+        <button class="btn btn-sm mbar-gen" type="button" @click="gen">生成</button>
+        <button class="btn btn-primary" type="button" @click="print" :disabled="!mpane.count">
+          <span class="mbar-print-long">打印 / 存 PDF</span><span class="mbar-print-short">打印</span>
+        </button>
+      </div>`,
+  };
+
   /* ---------------- 轻提示 ---------------- */
   // 页面里直接 Zu.toast('...')，根组件挂一个 <z-toasts> 收
   const toasts = (window.Zu.toasts = Vue.reactive([]));
@@ -923,7 +983,11 @@
     };
 
     // 进来先出一版：空白页面对新用户没意义
-    Vue.onMounted(generate);
+    // 顺带把手机上的分栏复位成「设置」—— 上一个页面停在预览，切过来不该还是预览
+    Vue.onMounted(() => {
+      if (mpane.pane !== 'form') setPane('form');
+      generate();
+    });
 
     // 参数一变就重排：本地计算，几毫秒的事，比点按钮顺手。
     // 顺手落盘（防抖 300ms）：以前保存挂在 generate 里，校验不过就把改的配置一起丢了。
@@ -933,6 +997,15 @@
       tid = setTimeout(() => Z.settings.set(key, form), 300);
       if (doc.value || pages.value.length) generate();
     }, { deep: true });
+
+    // 手机底部操作栏（<z-mbar>）拿这三个：页数、打印、重新生成
+    mpane.print = print;
+    mpane.regen = generate;
+    Vue.watch(
+      () => items.value.length || pages.value.length,
+      (n) => { mpane.count = n; },
+      { immediate: true }
+    );
 
     return {
       form, doc, pages, items, generate, print,
