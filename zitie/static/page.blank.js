@@ -81,6 +81,8 @@
 
         <z-preview :doc="doc" :pages="pages" :items="items" @print="print" @regen="generate"
           empty-text="选纸张类型"></z-preview>
+
+        <z-mbar></z-mbar>
       </div>`,
   };
 })();

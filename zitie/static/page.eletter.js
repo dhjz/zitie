@@ -82,6 +82,8 @@
 
         <z-preview :doc="doc" :pages="pages" :items="items" @print="print" @regen="generate"
           empty-text="选类型，点生成"></z-preview>
+
+        <z-mbar></z-mbar>
       </div>`,
   };
 })();

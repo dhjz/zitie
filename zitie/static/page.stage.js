@@ -115,6 +115,8 @@
 
         <z-preview :doc="doc" :pages="pages" :items="items" @print="print" @regen="generate"
           empty-text="输入一段文字"></z-preview>
+
+        <z-mbar></z-mbar>
       </div>`,
   };
 })();
