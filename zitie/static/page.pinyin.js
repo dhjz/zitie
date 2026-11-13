@@ -16,6 +16,9 @@
     font_color: 'rgb(255, 120, 120)',
   };
 
+  // 参与自动保存与导出；inputs 里的是输入类，不落盘也不导出
+  Z.settings.define('pinyin', { label: '拼音字帖', defaults: DEFAULTS, inputs: ['content'] });
+
   const validate = (f) => {
     if (Number(f.type) !== 4) return '';
     if (!Z.chars(f.content).length) return '切到「汉字注音」得先输入汉字';

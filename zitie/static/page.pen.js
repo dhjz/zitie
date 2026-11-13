@@ -19,6 +19,9 @@
     trace_color: 'rgb(150, 180, 215)',
   };
 
+  // 参与自动保存与导出；inputs 里的是输入类，不落盘也不导出
+  Z.settings.define('pen', { label: '控笔练习', defaults: DEFAULTS, inputs: ['content'] });
+
   // 早版本存的是「选中的图形串 + 描红格数」，跟现在的输入框不是一套，
   // 留着会让老用户还看到半行空白，直接丢掉，用新默认值重来。
   if (Z.load('pen', {}).picks != null) Z.save('pen', {});

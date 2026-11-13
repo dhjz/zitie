@@ -16,6 +16,9 @@
     font_color: 'rgb(255, 120, 120)',
   };
 
+  // 参与自动保存与导出；inputs 里的是输入类，不落盘也不导出
+  Z.settings.define('eletter', { label: '英文字帖', defaults: DEFAULTS, inputs: ['content'] });
+
   const validate = (f) => {
     if (f.type !== 'word') return '';
     if (!String(f.content || '').trim()) return '先输入单词，用空格或竖线隔开';
