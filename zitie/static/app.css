@@ -568,7 +568,8 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 6px; font-
 }
 @keyframes modal-fade { from { opacity: 0; } to { opacity: 1; } }
 .modal-panel {
-  width: min(720px, 100%); max-height: min(78vh, 720px);
+  /* 素材弹窗要摊开一册课文的所有字块，窄了根本排不开 —— 给到 1120px、88vh */
+  width: min(1120px, 100%); max-height: min(88vh, 940px);
   display: flex; flex-direction: column;
   background: var(--surface); border-radius: var(--r-xl);
   box-shadow: var(--shadow-lg); overflow: hidden;
@@ -622,24 +623,50 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 6px; font-
 /* 方格视图：正文摊成一个个紧凑小方格，点一下高亮、再点取消。
    字间距靠 gap 撑，不用 letter-spacing —— 那样点选区域会歪。 */
 .grid-view { display: block; }
-/* 课文生字：一册里按课列下来，一课一行。左边课次，右边生字串 ——
-   生字串用楷体、字距拉开，扫一眼就知道这一课有哪些字。 */
-.book-view { display: block; }
-.ln-item {
-  display: flex; align-items: baseline; gap: 10px; width: 100%; min-width: 0;
-  text-align: left; padding: 7px 12px; margin-bottom: 6px; border-radius: var(--r-sm);
-  background: var(--surface-2); border: 1px solid var(--line-soft);
-  transition: border-color .14s, transform .14s;
+/* 年级页：课文平铺 + 素材卡片，两段各占一整行，所以不用 grid 而是一列往下排 */
+.list-view { display: block; }
+.col-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.sec-title {
+  margin: 18px 0 10px; font-size: 12px; font-weight: 600; letter-spacing: .06em;
+  color: var(--text-3); text-transform: uppercase;
 }
-.ln-item:hover { border-color: var(--accent); transform: translateX(2px); }
-.ln-name {
-  flex: 0 0 auto; font-size: 13px; color: var(--text-2); max-width: 46%;
+
+/* 上册 / 下册切换：一个年级一页，册换了但字块不出页面 */
+.bk-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.bk-chip {
+  display: flex; align-items: baseline; gap: 8px; padding: 7px 14px; border-radius: 999px;
+  font-size: 14px; font-weight: 600; color: var(--text-2);
+  background: var(--surface-2); border: 1px solid var(--line-soft);
+}
+.bk-chip:hover { border-color: var(--accent); color: var(--text); }
+.bk-chip.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.bk-num { font-size: 11px; font-weight: 400; color: var(--text-3); }
+.bk-chip.on .bk-num { color: var(--accent); opacity: .8; }
+.bk-picked { font-size: 12px; color: var(--accent); }
+
+/* 整册课文平铺：一课一块，块里字块自动换行。
+   用网格横向铺 —— 跟读课文一样从左往右扫；块各自高度不一，
+   所以 align-items:start，让矮的块自己收着，别被同一行拉高。 */
+.lesson-grid {
+  display: grid; gap: 10px; align-items: start;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.lesson-block {
+  min-width: 0; padding: 8px 10px 9px;
+  border-radius: var(--r-sm); background: var(--surface-2); border: 1px solid var(--line-soft);
+}
+.lesson-hd {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  width: 100%; margin-bottom: 6px; padding: 2px 4px; border-radius: 6px; text-align: left;
+}
+.lesson-hd:hover { background: var(--surface); }
+.lesson-name {
+  min-width: 0; font-size: 12px; color: var(--text-2);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.ln-chars {
-  flex: 1 1 auto; min-width: 0; font-family: kaiti, 'KaiTi', serif; font-size: 15px;
-  letter-spacing: 2px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
+.lesson-hd.on .lesson-name { color: var(--accent); font-weight: 600; }
+.lesson-cnt { flex: 0 0 auto; font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.lesson-hd.on .lesson-cnt { color: var(--accent); }
 
 .gx-back {
   display: block; margin-bottom: 10px; padding: 4px 10px; border-radius: 999px;
@@ -647,12 +674,12 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 6px; font-
   border: 1px solid var(--line-soft);
 }
 .gx-back:hover { color: var(--text); border-color: var(--line); }
-.gx-line { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 3px; }
+.gx-line { display: flex; flex-wrap: wrap; gap: 4px; }
 .gx-cell {
   /* 定宽定高才排得整齐：楷体各字宽不一样，flex 一撑就参差 */
-  width: 26px; height: 26px; flex: 0 0 auto;
+  width: 30px; height: 30px; flex: 0 0 auto;
   display: grid; place-items: center;
-  font-family: kaiti, 'KaiTi', serif; font-size: 17px; line-height: 1;
+  font-family: kaiti, 'KaiTi', serif; font-size: 19px; line-height: 1;
   color: var(--text); background: var(--surface);
   border: 1px solid var(--line-soft); border-radius: 6px;
   transition: background .12s, border-color .12s, color .12s;
@@ -673,10 +700,10 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 6px; font-
   .btn-collection { padding: 7px 10px; }
   .col-txt, .modal-ft .hint { display: none; }
   .modal-ft { justify-content: flex-end; }
-  .gx-cell { width: 23px; height: 23px; font-size: 15px; }
-  /* 手机上横向挤：课次占六成，生字串自己往右省略，别把课次挤成三行 */
-  .ln-name { max-width: 58%; }
-  .ln-chars { letter-spacing: 1px; }
+  .gx-cell { width: 27px; height: 27px; font-size: 17px; }
+  /* 手机上一栏到底，别硬凑多栏 */
+  .lesson-grid { grid-template-columns: 1fr; }
+  .col-grid { grid-template-columns: 1fr; }
 }
 
 /* ---------------- 设置弹窗 ----------------
