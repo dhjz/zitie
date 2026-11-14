@@ -195,6 +195,27 @@ html.dark .seg button.on { background: var(--accent-soft); }
 textarea.input { resize: vertical; min-height: 96px; line-height: 1.9; letter-spacing: 2px; font-size: 15px; }
 .num { display: inline-flex; align-items: center; gap: 6px; }
 .num .input { width: 64px; text-align: center; padding: 7px 6px; }
+/* z-num 专用的微调按钮：原生 spinner 各家浏览器长得都不一样（还只在 hover 时才冒出来），
+   藏掉换成右边一对竖排的 + / -；到上下限就置灰，点了没反应不用猜。
+   数学页「自定义范围」那行也叫 .num，所以这几条只认 .num-ctl */
+.num-ctl .input { height: 38px; -moz-appearance: textfield; appearance: textfield; }
+.num-ctl .input::-webkit-outer-spin-button,
+.num-ctl .input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.num-step {
+  display: grid; grid-template-rows: 1fr 1fr; width: 26px; height: 38px; flex: none;
+  background: var(--surface-2); border: 1px solid var(--line-soft);
+  border-radius: 9px; overflow: hidden;
+}
+.num-step button {
+  display: flex; align-items: center; justify-content: center; appearance: none;
+  font-size: 14px; line-height: 1; color: var(--text-2);
+  transition: background .16s, color .16s;
+}
+.num-step button + button { border-top: 1px solid var(--line-soft); }
+.num-step button:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); }
+.num-step button:active:not(:disabled) { background: var(--accent); color: #fff; }
+.num-step button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.num-step button:disabled { opacity: .35; cursor: not-allowed; }
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -688,6 +709,9 @@ html.dark .thumb svg { filter: brightness(.93); }
   .input, textarea.input, .fix-input, .num .input { font-size: 16px; }
   .fix-input { width: 78px; font-size: 15px; }
   .num .input { width: 66px; }
+  /* 手机上输入框字号抬到 16px，两个小按钮也跟着长高，指头才点得着 */
+  .num-ctl .input { height: 44px; }
+  .num-step { width: 32px; height: 44px; }
 
   /* 双 Tab：默认只看设置，点「预览」才看纸。桌面端两条规则不生效 */
   html[data-mpane="form"] .split > .preview,

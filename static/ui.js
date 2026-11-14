@@ -112,21 +112,32 @@
       </div>`,
   };
 
-  // 数字输入（描字行/空白行/数量那种）
+  // 数字输入（描字行/空白行/数量那种）：输入框右边一对竖排的 + / -，点一下走一格
   G.ZNum = {
     name: 'ZNum',
     props: { modelValue: [Number, String], min: { type: Number, default: 0 }, max: { type: Number, default: 9 }, suffix: { type: String, default: '' } },
     emits: ['update:modelValue'],
     setup(props, { emit }) {
+      const clamp = (v) => Math.min(props.max, Math.max(props.min, v));
       const set = (e) => {
         const v = parseInt(e.target.value, 10);
-        emit('update:modelValue', isNaN(v) ? props.min : Math.min(props.max, Math.max(props.min, v)));
+        emit('update:modelValue', isNaN(v) ? props.min : clamp(v));
       };
-      return { set };
+      const bump = (d) => {
+        const n = Number(props.modelValue);
+        emit('update:modelValue', clamp((Number.isFinite(n) ? n : props.min) + d));
+      };
+      const atMin = computed(() => Number(props.modelValue) <= props.min);
+      const atMax = computed(() => Number(props.modelValue) >= props.max);
+      return { set, bump, atMin, atMax };
     },
     template: `
-      <span class="num">
+      <span class="num num-ctl">
         <input class="input" type="number" :min="min" :max="max" :value="modelValue" @change="set" @input="set" />
+        <span class="num-step">
+          <button type="button" title="增加" aria-label="增加" :disabled="atMax" @click="bump(1)">+</button>
+          <button type="button" title="减少" aria-label="减少" :disabled="atMin" @click="bump(-1)">−</button>
+        </span>
         <span class="hint" v-if="suffix">{{ suffix }}</span>
       </span>`,
   };
