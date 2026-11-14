@@ -689,7 +689,7 @@ html.dark .thumb svg { filter: brightness(.93); }
   .wrap { padding: 10px 10px calc(66px + env(safe-area-inset-bottom)); }
   /* 手机上首页抬头只留标题 + 三个按钮：那段「纯前端生成 A4 字帖…」
      两行变六行，一屏就被它吃掉，用户是来找入口的，不是来读介绍的。 */
-  .hero { padding: 16px 14px; margin-bottom: 10px; border-radius: var(--r); }
+  .hero { padding: 16px 14px; margin-bottom: 10px; border-radius: var(--r); display: none; }
   .hero h1 { font-size: 21px; margin-bottom: 10px; display: none; }
   /* 只砍首页那段介绍，说明页的 hero-slim 里那句话是有用的 */
   .hero:not(.hero-slim) p { display: none; }
