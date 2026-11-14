@@ -1,4 +1,4 @@
-/* 英文字帖：字母表 / 单词
+/* 英文字帖：字母表 / 自选字母 / 单词
    四线三格用虚线画，字体自带手写感，不依赖系统装了什么。 */
 (function () {
   const G = (window.myComponents = window.myComponents || {});
@@ -7,7 +7,8 @@
   const DEFAULTS = {
     title: 'English Practice',
     type: 'alphabet',
-    content: 'apple banana orange',
+    content: 'apple banana orange', // 单词模式的正文
+    custom: 'Aa Bb Cc',           // 自选字母，空格或逗号隔开
     font_key: 'shouxieti',
     trace: 1,           // 描字类型；四线三格的字细，只能用描边那一类
     repeat_times: 10,
@@ -18,12 +19,14 @@
   };
 
   // 参与自动保存与导出；inputs 里的是输入类，不落盘也不导出
-  Z.settings.define('eletter', { label: '英文字帖', defaults: DEFAULTS, inputs: ['content'] });
+  Z.settings.define('eletter', { label: '英文字帖', defaults: DEFAULTS, inputs: ['content', 'custom'] });
 
   const validate = (f) => {
-    if (f.type !== 'word') return '';
-    if (!String(f.content || '').trim()) return '先输入单词，用空格或竖线隔开';
-    if (/[^\sa-zA-Z\-|,，]/.test(String(f.content))) return '只能输入英文单词';
+    if (f.type === 'word') {
+      if (!String(f.content || '').trim()) return '先输入单词，用空格或竖线隔开';
+      if (/[^\sa-zA-Z\-|,，]/.test(String(f.content))) return '只能输入英文单词';
+    }
+    if (f.type === 'letters' && !Z.letterItems(f.custom).length) return '先输入要练的字母，用空格或逗号隔开';
     return '';
   };
 
@@ -32,13 +35,29 @@
     setup() {
       const gen = G.useGen('eletter', DEFAULTS, Z.genEnglish, validate);
       const { form, doc, pages, items, generate, print } = gen;
-      const typeOptions = [{ v: 'alphabet', label: '字母表' }, { v: 'word', label: '单词' }];
+      const typeOptions = [
+        { v: 'alphabet', label: '字母表' },
+        { v: 'letters', label: '自选字母' },
+        { v: 'word', label: '单词' },
+      ];
       // 四线三格的字本来就只有 2~3mm 粗，描边一加粗就糊；能用的只有描边那几档
       const traceOptions = Z.EN_TRACE_OPTIONS;
       const wordCount = Vue.computed(() =>
         (String(form.content || '').trim() ? String(form.content).split(/[\s,，|]+/).filter(Boolean).length : 0));
+      const itemCount = Vue.computed(() => Z.letterItems(form.custom).length);
+      const dropped = Vue.computed(() =>
+        Z.splitItems(form.custom).join('').length - Z.letterItems(form.custom).join('').length);
+      // 只想练几个字母：一键填整表，再删掉不练的那几个
+      const presets = [
+        { name: 'Aa ~ Zz', text: Z.ALPHABET_PAIRS.join(' ') },
+        { name: 'A ~ Z', text: Z.ALPHABET_PAIRS.map((p) => p[0]).join(' ') },
+        { name: 'a ~ z', text: Z.ALPHABET_PAIRS.map((p) => p[1]).join(' ') },
+      ];
+      const usePreset = (p) => { form.custom = p.text; };
       return { ...gen, form, doc, pages, items, generate, print,
-        typeOptions, wordCount, traceOptions, fonts: Z.EN_FONTS, footOptions: Z.FOOT_OPTIONS, borderColors: Z.BORDER_COLORS, inkColors: Z.INK_COLORS };
+        typeOptions, wordCount, itemCount, dropped, presets, usePreset,
+        traceOptions, fonts: Z.EN_FONTS, footOptions: Z.FOOT_OPTIONS,
+        borderColors: Z.BORDER_COLORS, inkColors: Z.INK_COLORS };
     },
     template: `
       <div class="split">
@@ -51,6 +70,14 @@
               <z-field v-if="form.type === 'word'" label="单词" tip="空格或竖线分隔">
                 <textarea class="input" v-model="form.content" rows="3" placeholder="apple banana orange"></textarea>
                 <div class="hint">{{ wordCount }} 个词</div>
+              </z-field>
+
+              <z-field v-if="form.type === 'letters'" label="字母" tip="空格、逗号、竖线或换行隔开，写什么印什么：Aa Cc，或只练小写 a c">
+                <textarea class="input" v-model="form.custom" rows="3" placeholder="例：Aa Cc Ff"></textarea>
+                <div class="hint">{{ itemCount }} 组<span v-if="dropped"> · 有 {{ dropped }} 个非字母字符会略过</span></div>
+                <div class="chip-list" style="margin-top:8px">
+                  <button v-for="p in presets" :key="p.name" type="button" class="chip" @click="usePreset(p)">{{ p.name }}</button>
+                </div>
               </z-field>
 
               <z-field label="字体">

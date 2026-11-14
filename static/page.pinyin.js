@@ -1,4 +1,4 @@
-/* 拼音字帖：声母表 / 韵母表 / 整体认读 / 汉字注音
+/* 拼音字帖：声母表 / 韵母表 / 整体认读 / 自选音节 / 汉字注音
    汉字注音用 pinyin-pro，整段一起判，多音字不会读错。 */
 (function () {
   const G = (window.myComponents = window.myComponents || {});
@@ -8,7 +8,8 @@
     title: '拼音练习本',
     type: 1,
     font_key: 'pinyinok',
-    content: '春眠不觉晓',
+    content: '春眠不觉晓', // 汉字注音的正文
+    custom: 'b p m f',    // 自选音节，空格或逗号隔开
     cols: 8,            // 每行格数：8 常规 / 10 密排，见 Z.PY_COLS_OPTIONS
     repeat_times: 6,
     blank_row: 1,
@@ -18,11 +19,12 @@
   };
 
   // 参与自动保存与导出；inputs 里的是输入类，不落盘也不导出
-  Z.settings.define('pinyin', { label: '拼音字帖', defaults: DEFAULTS, inputs: ['content'] });
+  Z.settings.define('pinyin', { label: '拼音字帖', defaults: DEFAULTS, inputs: ['content', 'custom'] });
 
   const validate = (f) => {
-    if (Number(f.type) !== 4) return '';
-    if (!Z.chars(f.content).length) return '切到「汉字注音」得先输入汉字';
+    const type = Number(f.type);
+    if (type === 4 && !Z.chars(f.content).length) return '切到「汉字注音」得先输入汉字';
+    if (type === 5 && !Z.pinyinItems(f.custom).length) return '先输入要练的音节，用空格或逗号隔开';
     return '';
   };
 
@@ -37,14 +39,27 @@
         { v: 2, label: '韵母表' },
         { v: 3, label: '整体认读' },
         { v: 4, label: '汉字注音' },
+        { v: 5, label: '自选' },
       ];
       const charCount = Vue.computed(() => Z.chars(form.content).length);
+      const itemCount = Vue.computed(() => Z.pinyinItems(form.custom).length);
+      // 粘进来的汉字标点会被剔掉，点出来免得以为字帖吞了内容
+      const dropped = Vue.computed(() =>
+        Z.splitItems(form.custom).join('').length - Z.pinyinItems(form.custom).join('').length);
+      // 从整套里删掉不练的，比一个一个手打快
+      const presets = [
+        { name: '全套声母', text: Z.PINYIN_SETS[1].join(' ') },
+        { name: '全套韵母', text: Z.PINYIN_SETS[2].join(' ') },
+        { name: '整体认读', text: Z.PINYIN_SETS[3].join(' ') },
+      ];
+      const usePreset = (p) => { form.custom = p.text; };
       // 拼音也是字体整字，只有描边那几档能用
       const traceOptions = Z.EN_TRACE_OPTIONS;
       const colOptions = Z.PY_COLS_OPTIONS;
 
       return { ...gen, form, doc, pages, items, generate, print,
-        typeOptions, charCount, traceOptions, colOptions, fonts: Z.PY_FONTS, footOptions: Z.FOOT_OPTIONS,
+        typeOptions, charCount, itemCount, dropped, presets, usePreset,
+        traceOptions, colOptions, fonts: Z.PY_FONTS, footOptions: Z.FOOT_OPTIONS,
         borderColors: Z.BORDER_COLORS, inkColors: Z.INK_COLORS };
     },
     template: `
@@ -58,6 +73,14 @@
               <z-field v-if="Number(form.type) === 4" label="汉字" tip="每个字一个音节，铺成一行一行描">
                 <textarea class="input" v-model="form.content" rows="3" placeholder="输入汉字，自动注音"></textarea>
                 <div class="hint">{{ charCount }} 字</div>
+              </z-field>
+
+              <z-field v-if="Number(form.type) === 5" label="音节" tip="空格、逗号、竖线或换行隔开，写什么练什么；只想练几个就只填几个">
+                <textarea class="input" v-model="form.custom" rows="3" placeholder="例：b p zh ang ying"></textarea>
+                <div class="hint">{{ itemCount }} 个音节<span v-if="dropped"> · 有 {{ dropped }} 个非拼音字符会略过</span></div>
+                <div class="chip-list" style="margin-top:8px">
+                  <button v-for="p in presets" :key="p.name" type="button" class="chip" @click="usePreset(p)">{{ p.name }}</button>
+                </div>
               </z-field>
 
               <z-field label="字体">
@@ -95,6 +118,7 @@
           <div class="card">
             <div class="card-bd hint">
               声母表 23 个、韵母表 24 个、整体认读 16 个，每个音节占两行：第一格深色示范，其余同一音节可描。
+              只想练其中几个就切到「自选」，填 b p m 即可，也能一键填入整套再删。
               汉字注音按整段判多音字，「长大了」读 zhǎng 不读 cháng。
             </div>
           </div>

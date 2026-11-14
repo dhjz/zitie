@@ -1269,11 +1269,24 @@
   };
 
   /* 拼音字帖
-     type 1 声母 / 2 韵母 / 3 整体认读 / 4 汉字注音 */
+     type 1 声母 / 2 韵母 / 3 整体认读 / 4 汉字注音 / 5 自选音节 */
   const SHENGMU = ['b', 'p', 'm', 'f', 'd', 't', 'n', 'l', 'g', 'k', 'h', 'j', 'q', 'x', 'zh', 'ch', 'sh', 'r', 'z', 'c', 's', 'y', 'w'];
   const YUNMU = ['a', 'o', 'e', 'i', 'u', 'ü', 'ai', 'ei', 'ui', 'ao', 'ou', 'iu', 'ie', 'üe', 'er', 'an', 'en', 'in', 'un', 'ün', 'ang', 'eng', 'ing', 'ong'];
   const ZHENGTI = ['zhi', 'chi', 'shi', 'ri', 'zi', 'ci', 'si', 'yi', 'wu', 'yu', 'ye', 'yue', 'yuan', 'yin', 'yun', 'ying'];
   Z.PINYIN_SETS = { 1: SHENGMU, 2: YUNMU, 3: ZHENGTI };
+
+  /* 自选内容：空格、逗号、顿号、分号、竖线、换行都能当分隔符，
+     一个词就是一格要印的内容。表里那几套是写死的，自选这句得让人自己填。 */
+  Z.splitItems = (text) => String(text || '').split(/[\s,，、;；|]+/).filter(Boolean);
+  /* 拼音字体里只有拉丁字母 + 带调元音（拉丁扩展区）、ü、声调数字，
+     粘进来的汉字标点直接剔掉，别让 SVG 里冒出豆腐块。
+     英文那几款字体只认字母、数字、连字符，同理。 */
+  Z.pinyinItems = (text) => Z.splitItems(text)
+    .map((s) => s.replace(/[^A-Za-z0-9\u00c0-\u024f\u0300-\u036f-]/g, ''))
+    .filter(Boolean);
+  Z.letterItems = (text) => Z.splitItems(text)
+    .map((s) => s.replace(/[^A-Za-z0-9-]/g, ''))
+    .filter(Boolean);
 
   Z.genPinyin = (form) => {
     const cols = Z.clamp(form.cols || 8, 6, 10) >= 10 ? 10 : 8;
@@ -1297,7 +1310,11 @@
         blocks.push(block);
       });
     } else {
-      const list = Z.PINYIN_SETS[Number(form.type)] || SHENGMU;
+      // type 5 是自选：只练填进来的那几个，别再把整套表摊满几页
+      const list = Number(form.type) === 5
+        ? Z.pinyinItems(form.custom)
+        : (Z.PINYIN_SETS[Number(form.type)] || SHENGMU);
+      if (!list.length) return null;
       for (const s2 of list) {
         // 一个音节占两行：第一格深色示范，其余同内容可描
         const block = [];
@@ -1324,7 +1341,10 @@
   };
 
   /* 英文字帖
-     type 'alphabet' 字母表 / 'word' 单词 */
+     type 'alphabet' 字母表 / 'letters' 自选字母 / 'word' 单词 */
+  Z.ALPHABET_PAIRS = Array.from({ length: 26 }, (_, i) =>
+    String.fromCharCode(65 + i) + String.fromCharCode(97 + i));
+
   Z.genEnglish = (form) => {
     const fontCss = form.font_key || 'shouxieti';
     const blank = () => ({ word: '', head: false });
@@ -1333,7 +1353,10 @@
     const words = form.type === 'word'
       ? String(form.content || '').split(/[\s,，|]+/).filter(Boolean)
       : [];
-    if (form.type === 'word' && !words.length) return null;
+    // 自选字母跟字母表走同一套排版，只是清单由用户填
+    const letters = form.type === 'letters' ? Z.letterItems(form.custom) : [];
+    const list = words.length ? words : letters;
+    if ((form.type === 'word' || form.type === 'letters') && !list.length) return null;
 
     /* 列数按最长的那个词反算，不再一律 5 列。
        四线三格的字号只由格高决定（见 Z.enLayout），格宽只负责「放不放得下」：
@@ -1347,9 +1370,9 @@
        「长词自己缩字号」的兜底 —— 总不能为了一个词把整页列数砍到 2。 */
     const probeH = Z.gridFor(12, 9, false).cellH; // 格高与列数无关，先探一次
     const size = Z.enLayout(fontCss, 0, probeH).size;
-    const widest = words.reduce((a, b) => (Z.textEm(b, fontCss) > Z.textEm(a, fontCss) ? b : a), '');
+    const widest = list.reduce((a, b) => (Z.textEm(b, fontCss) > Z.textEm(a, fontCss) ? b : a), '');
     const wantW = Z.clamp(Z.textEm(widest, fontCss) * size + 2.4, 15, 35);
-    const cols = words.length ? Z.clamp(Math.floor(Z.gridWidthOf(12) / wantW), 3, 12) : 12;
+    const cols = list.length ? Z.clamp(Math.floor(Z.gridWidthOf(12) / wantW), 3, 12) : 12;
     const gridWidth = Z.gridWidthOf(12);
     const grid = Z.gridFor(cols, 9, false);
     const { cellH, perPage } = grid;
@@ -1364,10 +1387,10 @@
         blocks.push(block);
       }
     } else {
-      for (let c = 65; c <= 90; c++) {
-        const pair = String.fromCharCode(c) + String.fromCharCode(c + 32);
+      const pairs = list.length ? list : Z.ALPHABET_PAIRS;
+      for (const w of pairs) {
         const block = [];
-        for (let i = 0; i < cols * 2; i++) block.push({ word: pair, head: i === 0 });
+        for (let i = 0; i < cols * 2; i++) block.push({ word: w, head: i === 0 });
         for (let r = 0; r < blankRow; r++) for (let c2 = 0; c2 < cols; c2++) block.push(blank());
         blocks.push(block);
       }
