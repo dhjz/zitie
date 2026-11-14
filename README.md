@@ -82,6 +82,15 @@ node lite.js          # 生成
 node lite.js --check  # 只核对覆盖率与体积
 ```
 
+想直接拿去用：打一个只含精简版资源的离线站点 zip，
+
+```bash
+python3 scripts/pack-lite.py --tag v1.0-lite   # 产物 dist/zitie-lite-v1.0-lite.zip
+```
+
+推一个名字里带 `lite` 的 Tag（如 `v1.0-lite`），流水线会自动打出这个 zip
+并挂到对应的 Release 附件上，解压双击 `index.html` 即可用。
+
 ## 文档
 
 - [Report.md](Report.md) —— 设计笔记：排版、字体、配置层、移动端适配的实现细节
