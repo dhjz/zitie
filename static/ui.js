@@ -751,35 +751,59 @@
         return Math.floor(Math.min(props.size, (props.cellW - 2.4) / em) * 100) / 100;
       });
       /* 描字：四线三格里的字同样是 <text>，所以那套 stroke + dasharray 照样能用。
-         只是这里量纲是 mm 不是 1024 方格，描边宽度得按字号折算 ——
-         取字号的 7% 作基准（约等于 1024 方格里的 24 那条线）。
-         示范格（head）永远实心，跟汉字那边一致。 */
+         只是这里量纲是 mm 不是 1024 方格，描边宽度和虚线节奏都按字号的
+         百分比折算（见 Zu.TRACE_EM）。示范格（head）永远实心，跟汉字那边一致。 */
+      const uid = 'zec' + Math.random().toString(36).slice(2, 8);
       const paint = computed(() => {
-        if (props.cell.head) return { fill: '#262c36', stroke: 'none', w: 0, dash: null, cap: null };
-        // 这里的量纲是 mm、字形是「文字」，所以描边按字号的百分比给（见 Zu.TRACE_EM）
-        const em = Z.traceEm(Z.traceOf(props.trace)) || Z.traceOf(props.trace);
-        if (typeof em === 'string' || !em.w) {
-          return { fill: props.ink, stroke: 'none', w: 0, dash: null, cap: null };
-        }
         const r2 = (v) => Math.round(v * 100) / 100;
+        const none = { fill: '#262c36', stroke: 'none', w: 0, dash: null, cap: null, dots: false };
+        if (props.cell.head) return none;
+        // 这里的量纲是 mm、字形是「文字」，描边按字号的百分比给（见 Zu.TRACE_EM）
+        const em = Z.traceEm(Z.traceOf(props.trace)) || Z.traceOf(props.trace);
+        /* 细虚线：沿字形路径摆一串圆点（零长划 + 圆头），再裁到实心字形里。
+           点径、点距都给得比笔画细点阵大得多，屏幕预览里才不会糊成一片实线；
+           裁切把内外两圈轮廓上的点并成一串，字中间不再有空心的框。 */
+        if (em && em.dots) {
+          return {
+            fill: 'none', stroke: props.ink, dots: true, cap: 'round',
+            w: r2(Math.max(0.2, fontSize.value * em.w)),
+            dash: '0 ' + r2(Math.max(0.3, fontSize.value * em.gap)),
+          };
+        }
+        if (typeof em === 'string' || !em.w) {
+          return { fill: props.ink, stroke: 'none', w: 0, dash: null, cap: null, dots: false };
+        }
         return {
           fill: 'none',
           stroke: props.ink,
           w: r2(Math.max(0.1, fontSize.value * em.w)),
           dash: em.dash ? em.dash.map((v) => r2(fontSize.value * v)).join(' ') : null,
           cap: em.cap || null,
+          dots: false,
         };
       });
-      return { box, fontSize, paint, family };
+      return { box, fontSize, paint, family, uid };
     },
     template: `
       <div class="cell-en" :style="{ height: cellH + 'mm' }">
         <i class="rule" :style="{ top: (mid * 100) + '%' }"></i>
         <i class="rule" :style="{ top: (base * 100) + '%' }"></i>
         <svg class="word" :viewBox="box" xmlns="http://www.w3.org/2000/svg">
+          <defs v-if="paint.dots && cell.word">
+            <!-- 裁切区就是实心字形：两圈轮廓上的点并成一串，溢出字形的裁掉 -->
+            <clipPath :id="uid">
+              <text :x="cellW / 2" :y="base * cellH" text-anchor="middle"
+                :font-family="family" :font-size="fontSize">{{ cell.word }}</text>
+            </clipPath>
+          </defs>
+          <g v-if="paint.dots && cell.word" :clip-path="'url(#' + uid + ')'">
+            <text :x="cellW / 2" :y="base * cellH" text-anchor="middle"
+              :font-family="family" :font-size="fontSize" fill="none" :stroke="ink"
+              :stroke-width="paint.w" :stroke-dasharray="paint.dash" stroke-linecap="round">{{ cell.word }}</text>
+          </g>
           <!-- viewBox 的单位就是 mm（跟格子同一套量纲），所以 font-size 直接写数字，
                1 个单位 = 1mm。size 由 Zu.enLayout 按字体度量反算。 -->
-          <text v-if="cell.word" :x="cellW / 2" :y="base * cellH" text-anchor="middle"
+          <text v-else-if="cell.word" :x="cellW / 2" :y="base * cellH" text-anchor="middle"
             :font-family="family" :font-size="fontSize" :fill="paint.fill" :stroke="paint.stroke"
             :stroke-width="paint.w" :stroke-dasharray="paint.dash" :stroke-linecap="paint.cap">{{ cell.word }}</text>
         </svg>
