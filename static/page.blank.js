@@ -1,16 +1,18 @@
-/* 空白练习纸：田字格 / 米字格 / 拼音格 / 四线三格
-   就是不想写字，只想打印一叠格子的时候用。 */
+/* 空白练习纸：写字格、四线三格，外加中小学常用的作业纸
+   （作文稿纸 / 横线笔记 / 竖式计算 / 数学方格 / 坐标纸）。
+   就是不想写字，只想打印一叠纸的时候用。 */
 (function () {
   const G = (window.myComponents = window.myComponents || {});
   const Z = window.Zu;
 
   const DEFAULTS = {
     title: '练习纸',
-    guide: 'tian',   // 格型，跟汉字字帖同一套，另加 en（四线三格）
+    guide: 'tian',   // 格型，跟汉字字帖同一套，另加 en 与一批作业纸
     pinyin: 0,
     py_style: 'grid',
     num: 2,
     cols: 12,        // 每行格数：12 常规 / 13 密排
+    density: 1,      // 作业纸的格线疏密：0 密 / 1 中 / 2 疏
     foot: 0,
     border_color: 'rgb(56, 152, 219)',
     font_color: 'rgb(84, 92, 104)',
@@ -33,14 +35,26 @@
     setup() {
       const gen = G.useGen('blank', DEFAULTS, Z.genBlank, null);
       const { form, doc, pages, items, generate, print } = gen;
-      const guideOptions = Z.BLANK_GUIDES;
+      const guideGroups = Z.BLANK_GROUPS;
       const footOptions = Z.FOOT_OPTIONS;
       const pyStyles = Z.PY_STYLES;
       const colOptions = Z.COLS_OPTIONS;
-      // 四线三格本来就没有「拼音行」这回事，那条选项得藏起来
+      const densityOptions = [{ v: 0, label: '密' }, { v: 1, label: '中' }, { v: 2, label: '疏' }];
+      const isPaper = Vue.computed(() => Z.BLANK_PAPER_SET.has(form.guide));
       const isEn = Vue.computed(() => form.guide === 'en');
+      const isCn = Vue.computed(() => !isPaper.value && !isEn.value);
+      const currentTip = Vue.computed(() =>
+        (Z.BLANK_GUIDES.find((o) => o.v === form.guide) || {}).tip || '');
+      const densityTip = Vue.computed(() => ({
+        zuowen: '每行 16 / 20 / 24 字，右侧标累计字数',
+        heng: '行距 8 / 10 / 12mm',
+        shushi: '行距 12 / 14 / 16mm',
+        xiaoge: '细格 4 / 5 / 6mm，每 5 格一条粗线',
+        zuobiao: '细格 4 / 5 / 6mm，中心带坐标轴',
+      })[form.guide] || '格线疏密');
       return { ...gen, form, doc, pages, items, generate, print,
-        guideOptions, footOptions, pyStyles, isEn, colOptions, borderColors: Z.BORDER_COLORS };
+        guideGroups, footOptions, pyStyles, colOptions, densityOptions,
+        isPaper, isEn, isCn, currentTip, densityTip, borderColors: Z.BORDER_COLORS };
     },
     template: `
       <div class="split">
@@ -48,14 +62,19 @@
           <div class="card">
             <div class="card-hd"><h3>空白练习纸</h3></div>
             <div class="card-bd">
-              <z-field label="格型"><z-seg v-model="form.guide" :options="guideOptions"></z-seg></z-field>
-              <z-field label="每行格数" tip="12 格是常规密度（格子 15mm）；13 格密排，左右页边距收窄到 10mm，格子 14.46mm">
+              <z-field v-for="g in guideGroups" :key="g.label" :label="g.label">
+                <z-seg v-model="form.guide" :options="g.options"></z-seg>
+              </z-field>
+              <z-field v-if="!isPaper" label="每行格数" tip="12 格是常规密度（格子 15mm）；13 格密排，左右页边距收窄到 10mm，格子 14.46mm">
                 <z-seg v-model="form.cols" :options="colOptions"></z-seg>
               </z-field>
-              <z-field v-if="!isEn" label="拼音">
+              <z-field v-if="isPaper" label="格线疏密" :tip="densityTip">
+                <z-seg v-model="form.density" :options="densityOptions"></z-seg>
+              </z-field>
+              <z-field v-if="isCn" label="拼音">
                 <z-seg v-model="form.pinyin" :options="[{ v: 1, label: '加拼音行' }, { v: 0, label: '不加' }]"></z-seg>
               </z-field>
-              <z-field v-if="!isEn && Number(form.pinyin)" label="拼音格">
+              <z-field v-if="isCn && Number(form.pinyin)" label="拼音格">
                 <z-seg v-model="form.py_style" :options="pyStyles"></z-seg>
               </z-field>
               <z-field label="页数"><z-num v-model="form.num" :min="1" :max="30" suffix="张"></z-num></z-field>
@@ -73,8 +92,9 @@
           </div>
           <div class="card">
             <div class="card-bd hint">
-              汉字格默认 12 列 × 16 行，切到 13 列是 13 × 16（左右页边距收到 10mm，格子仍是 14.46mm）；加了拼音行是 12 × 11。四线三格也认这两档，13 格时每格 14.46mm × 8.84mm。
-              双横线是抄写本那种横线页，横着写下去不断行。
+              <div v-if="currentTip">{{ currentTip }}</div>
+              <div>汉字格默认 12 列 × 16 行，切到 13 列是 13 × 16（左右页边距收到 10mm，格子仍是 14.46mm）；加了拼音行是 12 × 11。四线三格也认这两档。
+              作业纸（作文稿纸、横线笔记、竖式计算、数学方格、坐标纸）按「格线疏密」调格子大小，横竖都铺满整页，格线色、页数、页脚照常可用。</div>
             </div>
           </div>
         </aside>

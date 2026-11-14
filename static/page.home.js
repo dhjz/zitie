@@ -15,7 +15,7 @@
         { name: 'math', ico: '±', title: '数学练习', desc: '加减乘除竖式口算，范围与题型自己定' },
         { name: 'stage', ico: '文', title: '词语文章', desc: '整段文字铺格子，古诗、课文、词语都行' },
         { name: 'pen', ico: '〰', title: '控笔练习', desc: '直线、折线、螺旋、波浪铺满整页，先把手练稳再写字' },
-        { name: 'blank', ico: '▦', title: '空白练习纸', desc: '田字格、米字格、拼音格、四线三格，想印几张印几张' },
+        { name: 'blank', ico: '▦', title: '空白练习纸', desc: '写字格、四线三格、作文稿纸、横线笔记、竖式计算、数学方格、坐标纸' },
       ];
       return { features };
     },

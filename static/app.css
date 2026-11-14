@@ -564,6 +564,79 @@ html.dark .thumb svg { filter: brightness(.93); }
 .grid-pen.gapped .cell-pen { border-left: 1px solid var(--cell-line); border-top: 1px solid var(--cell-line); }
 .cell-pen span { display: block; }
 
+/* ---------------- 作业纸（空白练习纸扩展） ----------------
+   作文稿纸 / 横线笔记 / 竖式计算 / 数学方格 / 坐标纸。
+   一张纸动辄几百上千个格子，全用 CSS 渐变铺底纹，一个空格 DOM 都不生成。
+   --paper-cell / --paper-row 由 genBlank 反算成能整除版心的数，
+   横竖都刚好铺满一页，纸底不留半格。 */
+.paper {
+  display: flex; overflow: hidden;
+  width: var(--paper-w, 180mm); height: var(--paper-h, 250mm);
+  color: var(--cell-line, #3898db);
+  --paper-fine: color-mix(in srgb, currentColor 42%, #fff);
+  --paper-strong: color-mix(in srgb, currentColor 72%, #fff);
+}
+.paper-grid {
+  flex: 1 1 auto; position: relative; overflow: hidden;
+  border: 1px solid currentColor; background-color: #fff;
+}
+/* 作文稿纸右侧 10mm 的字数栏：一行一个累计字数 */
+.paper-marks {
+  flex: 0 0 10mm; display: flex; flex-direction: column;
+  font-size: 8px; color: #98a2b3; text-align: right;
+}
+.paper-marks i {
+  display: block; height: var(--paper-row); line-height: var(--paper-row);
+  padding-right: 1mm; font-style: normal;
+  border-right: 1px solid var(--paper-fine);
+  border-bottom: 1px solid var(--paper-fine);
+}
+
+/* 作文稿纸：小方格 */
+.paper-zuowen .paper-grid {
+  background-image:
+    linear-gradient(to right, var(--paper-strong) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--paper-strong) 1px, transparent 1px);
+  background-size: var(--paper-cell) var(--paper-row);
+}
+
+/* 横线笔记 / 竖式计算：一条条横线，左侧一条装订线 */
+.paper-heng .paper-grid, .paper-shushi .paper-grid {
+  background-image: repeating-linear-gradient(to bottom,
+    transparent 0, transparent calc(var(--paper-row) - 1px),
+    var(--paper-fine) calc(var(--paper-row) - 1px), var(--paper-fine) var(--paper-row));
+  border-left: 2px solid var(--paper-strong);
+}
+/* 竖式计算再叠一条中缝，左右两栏各列一道竖式 */
+.paper-shushi .paper-grid {
+  background-image:
+    linear-gradient(to right,
+      transparent calc(50% - 0.5px), var(--paper-strong) calc(50% - 0.5px),
+      var(--paper-strong) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+    repeating-linear-gradient(to bottom,
+      transparent 0, transparent calc(var(--paper-row) - 1px),
+      var(--paper-fine) calc(var(--paper-row) - 1px), var(--paper-fine) var(--paper-row));
+}
+
+/* 数学方格 / 坐标纸：细格 + 每 5 格一条粗格 */
+.paper-xiaoge .paper-grid, .paper-zuobiao .paper-grid {
+  background-image:
+    linear-gradient(to right, var(--paper-strong) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--paper-strong) 1px, transparent 1px),
+    linear-gradient(to right, var(--paper-fine) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--paper-fine) 1px, transparent 1px);
+  background-size:
+    var(--paper-major-x) var(--paper-major-y),
+    var(--paper-major-x) var(--paper-major-y),
+    var(--paper-cell) var(--paper-row),
+    var(--paper-cell) var(--paper-row);
+}
+/* 坐标纸：中心十字坐标轴，刻度让学生自己标 */
+.paper-zuobiao .paper-grid::before,
+.paper-zuobiao .paper-grid::after { content: ''; position: absolute; background: currentColor; }
+.paper-zuobiao .paper-grid::before { left: 50%; top: 0; bottom: 0; width: 0.5mm; transform: translateX(-0.25mm); }
+.paper-zuobiao .paper-grid::after { top: 50%; left: 0; right: 0; height: 0.5mm; transform: translateY(-0.25mm); }
+
 /* 数学题 */
 .math-wrap { display: flex; flex-wrap: wrap; width: 100%; padding: 0 2mm; }
 .math-item {

@@ -1632,23 +1632,90 @@
   };
 
   /* 空白练习纸
-     guide 就是格型（跟汉字字帖同一套），另加一个 'en' 表示四线三格；
-     pinyin 决定汉字格上面有没有拼音行。 */
-  Z.BLANK_GUIDES = Z.GUIDE_OPTIONS.concat([{ v: 'en', label: '四线三格' }]);
+     guide 就是格型（跟汉字字帖同一套），另加 'en' 四线三格；
+     pinyin 决定汉字格上面有没有拼音行。
+     再补一批中小学常用的作业纸（作文稿纸、横线笔记、竖式计算、数学方格、
+     坐标纸）：它们只是底纹，一个字都不写，用 CSS 渐变画整版线比生成
+     几百上千个空格 DOM 轻得多，所以统一走 kind:'paper' + doc.paper。 */
+  Z.BLANK_PAPERS = [
+    { v: 'zuowen', label: '作文稿纸', tip: '小方格，右侧标每行累计字数；写作文、抄课文' },
+    { v: 'heng', label: '横线笔记', tip: '单行横线 + 左侧装订线；语文抄写、英语笔记、课堂记录' },
+    { v: 'shushi', label: '竖式计算', tip: '左右两栏宽行，列竖式、脱式计算、口算' },
+    { v: 'xiaoge', label: '数学方格', tip: '细格 + 每 5 格一条粗线；画图、草稿、统计图表' },
+    { v: 'zuobiao', label: '坐标纸', tip: '方格 + 中心坐标轴，画函数图像、描点' },
+  ];
+  Z.BLANK_PAPER_SET = new Set(Z.BLANK_PAPERS.map((o) => o.v));
+  /* 选项按学科分组，别一股脑塞进一个横滑条 —— 家长找「作文纸」得一眼看见。
+     shuang 从写字格里挪到英语组：它本来就是抄写本那种横线页。 */
+  Z.BLANK_GROUPS = [
+    { label: '语文 · 写字格', options: Z.GUIDE_OPTIONS.filter((o) => o.v !== 'shuang') },
+    { label: '英语 · 横线', options: [
+      { v: 'en', label: '四线三格', tip: '英语字母、拼音的标准四线格' },
+      { v: 'shuang', label: '双横线', tip: '抄写本那种横线页，横着写下去不断行' },
+      Z.BLANK_PAPERS[1],
+    ] },
+    { label: '作文', options: [Z.BLANK_PAPERS[0]] },
+    { label: '数学', options: Z.BLANK_PAPERS.slice(2) },
+  ];
+  Z.BLANK_GUIDES = Z.GUIDE_OPTIONS.concat([{ v: 'en', label: '四线三格' }], Z.BLANK_PAPERS);
+
+  /* 作业纸的尺寸：疏密三档。作文稿纸按「每行几个字」给（16/20/24），
+     其余按目标格边长给 mm。列宽、行高都反算成能整除版心的数，
+     横竖都刚好铺满一页，不会在纸底留半格或半页白。 */
+  Z.BLANK_PAPER_SIZES = {
+    heng: [8, 10, 12], shushi: [12, 14, 16],
+    xiaoge: [4, 5, 6], zuobiao: [4, 5, 6],
+  };
+  Z.blankPaper = (form, type, gridWidth) => {
+    const d = Z.clamp(form.density, 0, 2);
+    // 保留 3 位：行高常是 250/17 这类除不尽的数，只留 2 位十几行累积下来
+    // 会差出 0.07mm，底纹最后一格就跟纸框对不齐了
+    const r3 = (v) => Math.round(v * 1000) / 1000;
+    const width = gridWidth;
+    const height = Z.BODY_H;
+    const marks = type === 'zuowen';
+    // 作文稿纸右边留 10mm 字数栏，格区相应收窄
+    const gridW = marks ? width - 10 : width;
+    const cols = marks ? [16, 20, 24][d]
+      : Math.max(2, Math.floor(gridW / Z.BLANK_PAPER_SIZES[type][d]));
+    const cell = gridW / cols;
+    const rows = Math.max(2, Math.floor(height / (marks ? cell : Z.BLANK_PAPER_SIZES[type][d])));
+    const rowH = r3(height / rows);
+    return { type, width, height, gridW, cols, rows, marks,
+      cell: r3(cell), rowH,
+      // 粗格每 5 格一条，尺寸先算好，省得 CSS 里做 calc 乘法
+      majorX: r3(cell * 5), majorY: r3(rowH * 5) };
+  };
+
   Z.genBlank = (form) => {
     const guide = form.guide || 'tian';
     const num = Z.clamp(form.num || 2, 1, 50);
     const cols = Z.colsOf(form.cols);
     const gridWidth = Z.gridWidthOf(cols);
+    const padX = Z.padXOf(cols);
+    const foot = Z.footOf(form.foot);
+    const line = form.border_color;
+    const ink = form.font_color;
+    const title = form.title;
+
+    if (Z.BLANK_PAPER_SET.has(guide)) {
+      return {
+        doc: { kind: 'paper', title, line, ink, foot, padX, gridWidth,
+          // 纸张公共计算里会读 fontCss，空白纸不写字也带上，省得兜底逻辑猜
+          fontCss: 'kaiti', cellH: 15,
+          paper: Z.blankPaper(form, guide, gridWidth) },
+        // 底纹由 CSS 画，cell 留空；页数照旧由数组长度给 ZPreview 数
+        pages: Array.from({ length: num }, () => []),
+      };
+    }
     if (guide === 'en') {
       const grid = Z.gridFor(cols, 9, false);
       const { cellH, perPage } = grid;
       const page = Array.from({ length: perPage }, () => ({ word: '', head: false }));
       return {
         doc: {
-          kind: 'en', title: form.title, cols, cellH, pinyin: false, guide: 'en',
-          line: form.border_color, ink: form.font_color, fontCss: 'shouxieti', gridWidth,
-          padX: Z.padXOf(cols), foot: Z.footOf(form.foot),
+          kind: 'en', title, cols, cellH, pinyin: false, guide: 'en',
+          line, ink, fontCss: 'shouxieti', gridWidth, padX, foot,
           // 空白纸虽然不写字，四条线也照同一个公式摆，写上去跟真字帖对得上
           glyph: Z.enLayout('shouxieti', gridWidth / cols, cellH),
         },
@@ -1660,10 +1727,9 @@
     const { cellH, perPage } = grid;
     const page = Array.from({ length: perPage }, () => ({ ch: '', py: '', head: false }));
     return {
-      doc: { kind: 'cn', title: form.title, cols, cellH, pinyin, pyH: Z.PY_H,
+      doc: { kind: 'cn', title, cols, cellH, pinyin, pyH: Z.PY_H,
         pyStyle: Z.pyStyleOf(form.py_style), guide,
-        line: form.border_color, ink: form.font_color, fontCss: 'kaiti', render: 'text',
-        foot: Z.footOf(form.foot), gridWidth, padX: Z.padXOf(cols) },
+        line, ink, fontCss: 'kaiti', render: 'text', foot, gridWidth, padX },
       pages: Array.from({ length: num }, () => page),
     };
   };

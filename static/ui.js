@@ -881,7 +881,21 @@
         const x = props.doc.padX;
         return x == null ? {} : { paddingLeft: x + 'mm', paddingRight: x + 'mm' };
       });
-      return { cols, gridStyle, fontCss, glyph, padStyle };
+      /* 作业纸：整版底纹交给 CSS 渐变画，这里只把列宽/行高/纸面尺寸传下去。
+         列宽行高都在 genBlank 里反算成能整除版心的数，横竖都刚好铺满一页。 */
+      const paperStyle = computed(() => {
+        const p = props.doc.paper || {};
+        return {
+          '--cell-line': props.doc.line,
+          '--paper-w': (p.width || 180) + 'mm',
+          '--paper-h': (p.height || 250) + 'mm',
+          '--paper-cell': (p.cell || 9) + 'mm',
+          '--paper-row': (p.rowH || 10) + 'mm',
+          '--paper-major-x': (p.majorX || 45) + 'mm',
+          '--paper-major-y': (p.majorY || 50) + 'mm',
+        };
+      });
+      return { cols, gridStyle, fontCss, glyph, padStyle, paperStyle };
     },
     template: `
       <div class="sheet" :style="padStyle">
@@ -926,6 +940,15 @@
                 <span v-else-if="p.t === 'eq'" class="op">{{ p.v }}</span>
                 <span v-else>{{ p.v }}</span>
               </template>
+            </div>
+          </div>
+          <div v-else-if="doc.kind === 'paper'" class="paper" :class="'paper-' + doc.paper.type"
+            :style="paperStyle">
+            <!-- 作文稿纸 / 横线笔记 / 竖式计算 / 数学方格 / 坐标纸：
+                 格子线全靠 .paper-grid 的渐变铺满，不生成空格 DOM。 -->
+            <div class="paper-grid"></div>
+            <div v-if="doc.paper.marks" class="paper-marks">
+              <i v-for="r in doc.paper.rows" :key="r">{{ r * doc.paper.cols }}</i>
             </div>
           </div>
           <!-- 订正格：每页底部一行「改错」，从版心里扣出来的高度，
