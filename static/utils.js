@@ -1252,6 +1252,7 @@
         pyStyle: Z.pyStyleOf(form.py_style),
         guide: form.guide || 'tian', line: form.border_color, ink: form.font_color,
         fontCss: form.font_key || 'kaiti',
+        fontScale: (Number(form.font_scale) || 100) / 100,
         render: fontType === 2 ? 'stroke' : 'text',
         /* 笔顺帖画的是笔画轮廓 + 笔心线，十一档全支持；
            描字帖、笔顺条走字体整字，只有描边那一类做得了，其余落回细虚线 */
@@ -1470,6 +1471,7 @@
       doc: {
         kind: 'num', title: form.title, cols, cellH,
         numFont: Z.numFontOf(form.num_font),
+        fontScale: (Number(form.font_scale) || 100) / 100,
         guide: form.guide || 'tian', line: form.border_color, ink: form.font_color,
         // 描点不是描边：那是沿笔画摆一串点，跟空心/虚线是两回事
         trace: Z.traceOf(form.trace),
@@ -1538,6 +1540,7 @@
         pyStyle: Z.pyStyleOf(form.py_style),
         guide: form.guide || 'tian', line: form.border_color, ink: form.font_color,
         fontCss: form.font_key || 'kaiti',
+        fontScale: (Number(form.font_scale) || 100) / 100,
         render: 'text', // 整段文字只走字体，逐笔拆一整篇课文没有意义
         trace: Z.fontTraceOf(form.trace),
         foot: Z.footOf(form.foot), fixH,

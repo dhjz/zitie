@@ -112,10 +112,11 @@
       </div>`,
   };
 
-  // 数字输入（描字行/空白行/数量那种）：输入框右边一对竖排的 + / -，点一下走一格
+  // 数字输入（描字行/空白行/数量那种）：输入框右边一对竖排的 + / -，点一下走一格。
+  // step 给字号那种要一次跳 10% 的用，默认 1，老调用方不用改
   G.ZNum = {
     name: 'ZNum',
-    props: { modelValue: [Number, String], min: { type: Number, default: 0 }, max: { type: Number, default: 9 }, suffix: { type: String, default: '' } },
+    props: { modelValue: [Number, String], min: { type: Number, default: 0 }, max: { type: Number, default: 9 }, step: { type: Number, default: 1 }, suffix: { type: String, default: '' } },
     emits: ['update:modelValue'],
     setup(props, { emit }) {
       const clamp = (v) => Math.min(props.max, Math.max(props.min, v));
@@ -125,7 +126,8 @@
       };
       const bump = (d) => {
         const n = Number(props.modelValue);
-        emit('update:modelValue', clamp((Number.isFinite(n) ? n : props.min) + d));
+        const step = props.step || 1;
+        emit('update:modelValue', clamp((Number.isFinite(n) ? n : props.min) + d * step));
       };
       const atMin = computed(() => Number(props.modelValue) <= props.min);
       const atMax = computed(() => Number(props.modelValue) >= props.max);
@@ -133,7 +135,7 @@
     },
     template: `
       <span class="num num-ctl">
-        <input class="input" type="number" :min="min" :max="max" :value="modelValue" @change="set" @input="set" />
+        <input class="input" type="number" :min="min" :max="max" :step="step" :value="modelValue" @change="set" @input="set" />
         <span class="num-step">
           <button type="button" title="增加" aria-label="增加" :disabled="atMax" @click="bump(1)">+</button>
           <button type="button" title="减少" aria-label="减少" :disabled="atMin" @click="bump(-1)">−</button>
@@ -879,7 +881,11 @@
          所以「格区 + 两边留白 = 210」这一步在任何一档都成立。 */
       const padStyle = computed(() => {
         const x = props.doc.padX;
-        return x == null ? {} : { paddingLeft: x + 'mm', paddingRight: x + 'mm' };
+        // 字号系数只从这里注入 .sheet；格子尺寸走 gridStyle / cellH，别把系数传过去
+        const s = Number(props.doc.fontScale) || 1;
+        const o = { '--font-scale': Math.min(1.2, Math.max(0.6, s)) };
+        if (x != null) { o.paddingLeft = x + 'mm'; o.paddingRight = x + 'mm'; }
+        return o;
       });
       /* 作业纸：整版底纹交给 CSS 渐变画，这里只把列宽/行高/纸面尺寸传下去。
          列宽行高都在 genBlank 里反算成能整除版心的数，横竖都刚好铺满一页。 */

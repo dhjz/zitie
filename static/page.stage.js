@@ -8,6 +8,7 @@
     title: '课文抄写',
     content: '春眠不觉晓，处处闻啼鸟。\n夜来风雨声，花落知多少。',
     font_key: 'kaiti',
+    font_scale: 100,    // 格子里的字大小（百分比），格子尺寸不变
     pinyin: 0,
     py_style: 'grid',
     guide: 'tian',
@@ -83,6 +84,9 @@
               <z-field label="列数"><z-seg v-model="form.cols" :options="colOptions"></z-seg></z-field>
               <z-field label="格型"><z-seg v-model="form.guide" :options="guideOptions"></z-seg></z-field>
               <z-field label="字体"><z-fonts v-model="form.font_key" :fonts="fonts"></z-fonts></z-field>
+              <z-field label="字号" tip="只改格子里的字大小，格子尺寸不变；100% 是原来的大小，点一次调 10%，调太大字会顶到格线">
+                <z-num v-model="form.font_scale" :min="60" :max="120" :step="10" suffix="%"></z-num>
+              </z-field>
               <z-field label="描字" tip="示范格永远是实心深色，只改整篇的练习格">
                 <z-seg v-model="form.trace" :options="traceOptions"></z-seg>
                 <div class="hint" v-if="traceTip">{{ traceTip }}</div>

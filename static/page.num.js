@@ -9,6 +9,7 @@
     title: '数字练习',
     content: '0123456789',
     num_font: 'plain',  // plain 专用数字 / alpha 字母数字专用
+    font_scale: 100,    // 格子里的数字大小（百分比），格子尺寸不变
     guide: 'tian',      // 见 Z.GUIDE_OPTIONS
     trace: 1,           // 见 Z.TRACE_OPTIONS，数字是矢量字形，十一档全支持
     cols: 12,           // 每行格数：12 常规 / 13 密排，见 Z.COLS_OPTIONS
@@ -76,6 +77,10 @@
 
               <z-field label="格型">
                 <z-seg v-model="form.guide" :options="guideOptions"></z-seg>
+              </z-field>
+
+              <z-field label="字号" tip="只改格子里的数字大小，格子尺寸不变；100% 是原来的大小，点一次调 10%，调太大数字会顶到格线">
+                <z-num v-model="form.font_scale" :min="60" :max="120" :step="10" suffix="%"></z-num>
               </z-field>
 
               <z-field label="描字" tip="示范格永远实心，只改后面的练习格">

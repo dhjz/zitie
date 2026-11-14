@@ -525,7 +525,10 @@ html.dark .thumb svg { filter: brightness(.93); }
 
 /* 笔画轮廓的 viewBox 已经自带留白，容器再内缩 1.1mm 让它不顶格；
    字体整字不用缩 —— 字号是按墨迹量到格子的 94% 算的，再内缩就瘦一圈。 */
-.glyph { position: absolute; inset: 1.1mm; display: grid; place-items: center; }
+.glyph { position: absolute; inset: 1.1mm; display: grid; place-items: center;
+  /* 字号只缩这一层字形，格子（.cell-cn / .cell-guide）不参与；
+     SVG 的描边、圆点、笔心线和兜底文字都在这个容器里，一起等比缩放 */
+  transform: scale(var(--font-scale, 1)); transform-origin: center; }
 .glyph.text { inset: 0; }
 .glyph svg { width: 100%; height: 100%; display: block; }
 .glyph-text { font-size: 11mm; line-height: 1; }
