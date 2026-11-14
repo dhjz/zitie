@@ -19,9 +19,8 @@
      块比一页还大时只能硬切（那种情况说明参数设得太狠）。
      fill：把非末页补齐成整页，免得页面底下缺一块白 —— 打印出来就像没印完。
 
-     weight：一个 cell 占几格，默认各占 1 格。笔顺条的字头行是跨整行的一格，
-     权重得按一行（cols）算 —— 都算 1 的话「1 行字头 + 3 行描红」看着才 4 格，
-     实际占了 4 行，一页就会塞进双倍的块。 */
+     weight：一个 cell 占几格，默认各占 1 格。笔顺条的字头条只算高度不算格数
+     （记 0，高度摊进每行的提示行里），跟有拼音行的格式一样按整行数分页。 */
   Z.paginateBlocks = (blocks, per, fill, weight) => {
     const w = weight || (() => 1);
     const width = (list) => list.reduce((n, c) => n + w(c), 0);
@@ -869,36 +868,34 @@
      缩的上限是 8%（15 → 13.8，仍比 13 格档里那个 14.46 的高度差不离），
      提示行下限 6mm。再往下压当然更省纸，但描字的手感就没了。
 
-     只认页数真能变少的那档；挤到底还是那么多页，就原样退回默认，一行都不白改。 */
+     只认页数真能变少的那档；挤到底还是那么多页，就原样退回默认，一行都不白改。
+     描字、笔顺、笔顺条走的是同一套：区别只在每行摊到多少「提示行」高度。 */
   Z.CELL_KEEP = 0.92;
   Z.HINT_MIN = 6;
-  Z.fitHanziGrid = (blocks, cols, opt, weightAt) => {
-    /* gap：格子里的拼音行高度（笔顺条的格子里没有拼音行，给 0）
-       hint：跨整行那条提示条的高度（笔顺条字头，单独占一行）
+  Z.fitHanziGrid = (blocks, cols, opt, weight) => {
+    /* gap：每行摊到的提示行高度（拼音行 / 笔顺条字头），没有就 0
        reserve：订正格那种每页固定占掉的高度 */
-    const { gap: gap0, hint: hint0, reserve } = opt;
+    const { gap: gap0, reserve } = opt;
     const bodyH = Z.BODY_H - (reserve || 0);
-    const def = { ...Z.gridFor(cols, 15, false, reserve, gap0), gap: gap0, hint: hint0 };
-    const pagesOf = (g) => Z.paginateBlocks(blocks, g.perPage, null, weightAt(g)).length;
+    const def = { ...Z.gridFor(cols, 15, false, reserve, gap0), gap: gap0 };
+    const pagesOf = (g) => Z.paginateBlocks(blocks, g.perPage, null, weight).length;
     const defPages = pagesOf(def);
     // 一页就装得下，没什么可挤的
     if (defPages <= 1) return def;
 
     const r2 = (v) => Math.round(v * 100) / 100;
     const cellFloor = r2(15 * Z.CELL_KEEP);
-    /* 两条提示行各压各的：格子里的拼音行（gap）和笔顺条的跨行字头（hint），
-       谁在就压谁，都能压到 Z.HINT_MIN。 */
+    // 提示行压到 Z.HINT_MIN 就到底，再不够才动格子
     const floorOf = (v) => Math.min(v, Z.HINT_MIN);
     for (let rows = def.rows + 1; rows <= def.rows + 6; rows++) {
       // 每行能有多少高度（扣掉每行 1px 边框那 0.3mm）
       const unit = (bodyH - rows * 0.3) / rows;
-      // 先让格子吃 15mm（或者它本来就有的高度），富余给拼音行；
-      // 拼音行压到底还不够才动格子
+      // 先让格子吃 15mm（或者它本来就有的高度），富余给提示行；
+      // 提示行压到底还不够才动格子
       const h = r2(Math.min(15, def.cellH, unit - floorOf(gap0)));
       if (h < cellFloor) break;
       const gap = gap0 ? r2(Math.min(gap0, Math.max(floorOf(gap0), unit - h))) : 0;
-      const hint = hint0 ? r2(Math.min(hint0, floorOf(hint0))) : 0;
-      const g = { cols, rows, cellH: h, gap, hint, perPage: cols * rows };
+      const g = { cols, rows, cellH: h, gap, perPage: cols * rows };
       if (pagesOf(g) < defPages) {
         /* 格子等比缩：高度缩了几成，列宽也按同样的比例缩，方格还是方格 ——
            只缩高度会压成扁格，比留白更难看。
@@ -1157,21 +1154,21 @@
       pyOf.set(ch, own == null ? (py || Z.pinyinOf(ch)) : own);
     }
     const blank = () => cellCh('', '');
+    // 页尾补齐的行也要占一条提示行，不然比带拼音行的格式矮一截、纸底露白
+    const pad = () => ({ ...blank(), pad: true });
     const blocks = [];
     // 填了模式就按模式逐行排，没填才用「几行描 + 几行空」。
     // 笔顺帖一格里是一笔，模式那种「一行整字」跟它不是一个东西，不掺和。
     const pattern = fontType === 2 ? [] : Z.parseRowPattern(form.row_pattern);
-    /* 分页单位还是「一格」，但字头行只按它实际占的高度折算。
-       字头行只有拼音行那么高，还按一整格算等于当 15mm 用，
-       一页白白少排两块，纸底下就空出一大片白。
-       折算：一格 = rowMm / cols 毫米，字头 = rowHd 毫米 → headUnits 格。
-       格子高度要排完块、挤过一挤才定得下来，所以 weight 按高度现算。 */
-    const weightAt = (g) => {
-      const rowMm = g.cellH + 0.3;                // 一行（含边框）多高
-      // 字头行不吃格子那条拼音行的高度：它自己整行占一条，跟拼音行一个高
-      const headUnits = Math.min(cols, Math.round((g.hint + 0.3) / rowMm * cols * 100) / 100);
-      return (c) => (c.kind === 'headbar' ? headUnits : 1);
-    };
+    /* 三种格式共用一套分页模型：一行 = 格子 + 头顶一条提示行。
+       描字/笔顺的提示行是每格都有的拼音行（7.4mm）；笔顺条的提示行是
+       「一个字一条」的跨整行字头，把它摊到这个字的几行格子上，每行摊
+       7.4 / 行数 —— 跟拼音行一样进 gridFor 算每页行数、一样参与挤版。
+       字头条本身不占格数（weight 0），块宽就是 行数 × cols，全是整数，
+       于是按整行分页、按格补齐，跟另外两种格式走完全同一条路。 */
+    const rowsPerBlock = strip ? (pattern.length || fillRow + blankRow || 1) : 0;
+    const gap = strip ? Z.PY_H / rowsPerBlock : (pinyin ? Z.PY_H : 0);
+    const weight = (c) => (c.kind === 'headbar' ? 0 : 1);
 
     // 笔顺条的描红行：一行一行的整字，第一行第一格深色示范（跟别的格式一个规矩）
     const stripRows = (block, ch) => {
@@ -1184,6 +1181,11 @@
             else block.push(cellCh(ch, '', t === 't' && r === headRow && c === 0));
           }
         });
+        return;
+      }
+      // 一描一空都不给时也留一行描红：否则整块只剩字头，分页会把它当成 0 宽
+      if (!fillRow && !blankRow) {
+        for (let c = 0; c < cols; c++) block.push(cellCh(ch, '', c === 0));
         return;
       }
       for (let r = 0; r < fillRow; r++) {
@@ -1234,33 +1236,15 @@
       blocks.push(block);
     }
 
-    /* 块排好了才轮到版心：默认 15mm 格子 + 7.4mm 拼音行，
+    /* 块排好了才轮到版心：默认 15mm 格子 + 每行摊到的提示行，
        页尾差一行时挤一挤把下一块挪上来（见 Z.fitHanziGrid）。 */
-    const grid = Z.fitHanziGrid(blocks, cols, {
-      gap: pinyin ? Z.PY_H : 0,        // 格子里的拼音行
-      hint: strip ? Z.PY_H : 0,        // 笔顺条的跨行字头
-      reserve: fixH,
-    }, weightAt);
+    const grid = Z.fitHanziGrid(blocks, cols, { gap, reserve: fixH }, weight);
     const { cellH, perPage } = grid;
-    // 挤过之后提示行可能矮了一点
+    // 挤过之后提示行可能矮了一点；字头条把摊出去的几行高度收回来
     const pyH = pinyin ? grid.gap : Z.PY_H;
-    const barH = strip ? grid.hint : 0;
-    const weight = weightAt(grid);
+    const barH = strip ? Math.round(grid.gap * rowsPerBlock * 100) / 100 : 0;
     // 格子等比缩过的话，版心宽度也跟着缩，方格才不会变成扁格
     const gridWidth = grid.colW ? Math.round(grid.colW * cols * 100) / 100 : Z.gridWidthOf(cols);
-
-    /* 末页按整行空白补齐：一页就该是一整版格子，不能印出半页白纸。
-       剩下不到一行的零头不补 —— 那点白就是纸的下边距。 */
-    function fillPages(pages) {
-      for (const p of pages) {
-        let left = perPage - p.reduce((n, c) => n + weight(c), 0);
-        while (left >= cols) {
-          for (let i = 0; i < cols; i++) p.push(blank());
-          left -= cols;
-        }
-      }
-      return pages;
-    }
 
     return {
       doc: {
@@ -1274,11 +1258,12 @@
         trace: fontType === 2 ? Z.traceOf(form.trace) : Z.fontTraceOf(form.trace),
         foot: Z.footOf(form.foot), fixH,
         gridWidth, padX: Z.padXOf(cols),
-        /* 笔顺条的字头行（整字 + 拼音 + 笔顺小图）跟拼音行一个高，
-           它只是个提示条，不该抢格子的位置 */
+        /* 笔顺条字头行的高度：每行提示高度 × 这个字占几行，挤过版会一起变矮 */
         barH,
+        /* 补齐行也要占一条提示行：跟带拼音行的格式一样把整页铺满 */
+        padHint: strip ? Math.round(grid.gap * 100) / 100 : 0,
       },
-      pages: fillPages(Z.paginateBlocks(blocks, perPage, null, weight)),
+      pages: Z.paginateBlocks(blocks, perPage, pad, weight),
     };
   };
 

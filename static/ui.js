@@ -640,10 +640,13 @@
       trace: { type: String, default: 'solid' },
       cellH: { type: Number, default: 15 }, pyH: { type: Number, default: 7.4 },
       pyStyle: { type: String, default: 'grid' }, // grid 虚线格 / under 下划线 / paren 小括号 / box 长方格
+      padHint: { type: Number, default: 0 }, // 页尾补齐行要占的提示行高度
     },
     template: `
       <div class="cell-cn" :style="{ minHeight: cellH + 'mm' }">
-        <div v-if="pinyin" class="cell-py" :class="'py-' + pyStyle" :style="{ height: pyH + 'mm' }">
+        <div v-if="pinyin || (padHint && cell.pad)" class="cell-py"
+          :class="pinyin ? 'py-' + pyStyle : 'py-grid'"
+          :style="{ height: (pinyin ? pyH : padHint) + 'mm' }">
           <span>{{ cell.py || '' }}</span>
         </div>
         <div class="cell-ch" :style="{ minHeight: cellH + 'mm' }">
@@ -894,7 +897,8 @@
               <z-cell-cn v-else :cell="c" :pinyin="doc.pinyin"
                 :guide="doc.guide || 'tian'" :ink="doc.ink" :mode="doc.render || 'text'"
                 :trace="doc.trace || 'solid'" :py-style="doc.pyStyle || 'grid'"
-                :font-css="fontCss" :cell-h="doc.cellH || 15" :py-h="doc.pyH || 7.4"></z-cell-cn>
+                :font-css="fontCss" :cell-h="doc.cellH || 15" :py-h="doc.pyH || 7.4"
+                :pad-hint="doc.padHint || 0"></z-cell-cn>
             </template>
           </div>
           <div v-else-if="doc.kind === 'num'" class="grid-cn" :class="'guide-' + (doc.guide || 'tian')"
