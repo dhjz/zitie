@@ -35,3 +35,31 @@ $:
             git -c credential.helper="store --file=$cred_file" \
               push https://github.com/dhjz/zitie.git \
               refs/remotes/origin/main:refs/heads/main --force
+
+# tag 名里带 lite（如 v1.2-lite）时，打「精简版」离线站点 zip 并挂到 Release 附件。
+# 精简版只带 static/data/*_lite 与 static/fonts/zh_lite，丢掉完整版三个大目录，
+# 包内把 config.js 的 IS_LITE 钉成 true，解压后双击 index.html 即可用。
+# 注意：**lite** 里的 ** 不是手滑 —— 单个 * 不跨 /，tag 名带层级时就会漏。
+"**lite**":
+  tag_push:
+    - stages:
+        - name: pack lite zip
+          image: python:3-alpine
+          script: |
+            set -e
+            python3 scripts/pack-lite.py --tag "$CNB_BRANCH"
+            ls -lh dist/
+        - name: create release
+          type: git:release
+          options:
+            title: "$CNB_BRANCH · 精简版"
+            description: |
+              精简版离线站点：解压后双击 `index.html` 就能用。
+
+              含常用字（约 3500 字）的笔顺、笔心线与中文字体子集，
+              不含完整版 6763 字的 `strokes` / `medians` / `fonts/zh`，体积约为完整版三分之一。
+        - name: upload zip to release
+          image: cnbcool/attachments:latest
+          settings:
+            attachments:
+              - "./dist/*.zip"
