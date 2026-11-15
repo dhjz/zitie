@@ -834,6 +834,8 @@
     { v: 8, label: '8 格', tip: '常规密度，一音节一格 22mm' },
     { v: 10, label: '10 格', tip: '密排，一音节一格 17.6mm，长音节（zhuang、ying）会自动缩一点' },
   ];
+  // 老存档里列数是 6~10 任意值，落到 8 / 10 两档 —— 页面算「每行空数」上限时也用它
+  Z.pyColsOf = (cols) => (Z.clamp(cols || 8, 6, 10) >= 10 ? 10 : 8);
   Z.colsOf = (cols) => (Number(cols) >= 13 ? 13 : 12);
   /* 格区宽度：12 档沿用原来的 180，13 档把左右页边距从 13mm 收到 10mm，
      版心 184 → 190，格区取 188。188 / 13 = 14.46mm，
@@ -1120,6 +1122,25 @@
     return cells;
   }
 
+  /* 每行空数：一行最后留几格不印字，学生自己写。
+     只在「落格」这一步动，块宽、分页、挤版一概不改 —— 页数不会因为留空变多。
+     weight 0 的格子（笔顺条的字头条）跨整行，碰到它就回到行首。 */
+  Z.blankColsOf = (cols, tail) => Math.min(Number(cols) || 0, Math.max(0, Number(tail) || 0));
+  Z.blankTails = (pages, cols, tail, make, weight) => {
+    const t = Z.blankColsOf(cols, tail);
+    if (!t || !pages) return pages;
+    const w = weight || (() => 1);
+    return pages.map((page) => {
+      let col = 0;
+      return page.map((c) => {
+        if (w(c) !== 1) { col = 0; return c; }
+        const out = col >= cols - t ? make(c) : c;
+        col = (col + 1) % cols;
+        return out;
+      });
+    });
+  };
+
   /* 汉字字帖
      font_type: 1 描字 / 2 笔顺 / 3 笔顺条
      1、2：每个字一块，头格（深色示范）+ 描字行 + 空白行，补齐整行
@@ -1156,6 +1177,14 @@
     const blank = () => cellCh('', '');
     // 页尾补齐的行也要占一条提示行，不然比带拼音行的格式矮一截、纸底露白
     const pad = () => ({ ...blank(), pad: true });
+    /* 「每行空数」：只把行尾那几格的字擦掉，块宽、分页、挤版一概不动。
+       擦掉的只是字和拼音文字本身，拼音行那一条带子（高度）和补齐行的 pad
+       记号照旧留着 —— 每行的高度全靠它撑着，抽掉整行就矮一截，
+       跟分页算出来的位置对不上。
+       深色示范格（head）留着：留满一整行时就是「一格示范、后面全空着」，
+       字帖不该连个样子都没有。笔顺帖每格是一笔，擦掉就是漏笔，不参与。 */
+    const tail = fontType === 2 ? 0 : Z.blankColsOf(cols, form.tail_blank);
+    const tailOf = (c) => (c.head ? c : { ...c, ch: '', py: '', head: false, upTo: null });
     const blocks = [];
     // 填了模式就按模式逐行排，没填才用「几行描 + 几行空」。
     // 笔顺帖一格里是一笔，模式那种「一行整字」跟它不是一个东西，不掺和。
@@ -1264,7 +1293,7 @@
         /* 补齐行也要占一条提示行：跟带拼音行的格式一样把整页铺满 */
         padHint: strip ? Math.round(grid.gap * 100) / 100 : 0,
       },
-      pages: Z.paginateBlocks(blocks, perPage, pad, weight),
+      pages: Z.blankTails(Z.paginateBlocks(blocks, perPage, pad, weight), cols, tail, tailOf, weight),
     };
   };
 
@@ -1289,7 +1318,7 @@
     .filter(Boolean);
 
   Z.genPinyin = (form) => {
-    const cols = Z.clamp(form.cols || 8, 6, 10) >= 10 ? 10 : 8;
+    const cols = Z.pyColsOf(form.cols);
     const grid = Z.gridFor(cols, 11, false);
     const { cellH, perPage } = grid;
     const blankRow = Z.clamp(form.blank_row, 0, 5);
@@ -1326,6 +1355,8 @@
 
     const fontCss = form.font_key || 'pinyinok';
     const gridWidth = 176;
+    // 行尾留几格自己写：跟汉字、数字同一套（见 Z.blankTails）
+    const tail = Z.blankColsOf(cols, form.tail_blank);
     return {
       doc: {
         kind: 'en', title: form.title, cols, cellH, pinyin: false,
@@ -1336,7 +1367,9 @@
         foot: Z.footOf(form.foot),
         glyph: Z.enLayout(fontCss, gridWidth / cols, cellH),
       },
-      pages: Z.paginateBlocks(blocks, perPage, () => ({ word: '', head: false, py: true })),
+      // 第一格是深色示范，留空时留着它 —— 「示范 + 空着自己写」才是字帖
+      pages: Z.blankTails(Z.paginateBlocks(blocks, perPage, () => ({ word: '', head: false, py: true })),
+        cols, tail, (c) => (c.head ? c : { word: '', head: false, py: true })),
     };
   };
 
@@ -1481,6 +1514,8 @@
     const blankRow = Z.clamp(form.blank_row, 0, 5);
     const blank = () => ({ ch: '', head: false });
     const blocks = [];
+    // 行尾留几格自己写：跟汉字、拼音同一套（见 Z.blankTails）
+    const tail = Z.blankColsOf(cols, form.tail_blank);
 
     for (const ch of digits) {
       const block = [];
@@ -1501,7 +1536,9 @@
         foot: Z.footOf(form.foot), fixH,
         gridWidth: Z.gridWidthOf(cols), padX: Z.padXOf(cols),
       },
-      pages: Z.paginateBlocks(blocks, perPage, () => blank()),
+      // 深色示范格留着，理由同上
+      pages: Z.blankTails(Z.paginateBlocks(blocks, perPage, () => blank()), cols, tail,
+        (c) => (c.head ? c : blank())),
     };
   };
 

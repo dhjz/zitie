@@ -13,6 +13,7 @@
     guide: 'tian',      // 见 Z.GUIDE_OPTIONS
     trace: 1,           // 见 Z.TRACE_OPTIONS，数字是矢量字形，十一档全支持
     cols: 12,           // 每行格数：12 常规 / 13 密排，见 Z.COLS_OPTIONS
+    tail_blank: 0,      // 每行末尾留几格空着，学生自己写（最多就是每行格数）
     repeat_times: 12,   // 每个数字占几格（含第一个示范格）
     blank_row: 0,       // 每个数字后面留几行空白自己写
     fix: 0,             // 每页尾部订正格
@@ -40,6 +41,9 @@
       form.cols = Z.colsOf(form.cols);
 
       const digitCount = Vue.computed(() => String(form.content || '').replace(/[^0-9]/g, '').length);
+      // 「每行空数」的上限就是每行格数；格数换档时把越界的收回来
+      const tailMax = Vue.computed(() => Z.colsOf(form.cols));
+      Vue.watch(tailMax, (n) => { if (Number(form.tail_blank) > n) form.tail_blank = n; }, { immediate: true });
       // 描点那一档就是原站的「圆点画」，顺手把话说清楚
       const TRACE_TIPS = {
         4: '圆点：一串点沿运笔线摆出来，点的粗细跟着笔画肥瘦走，照着点连起来就是字形',
@@ -51,7 +55,7 @@
 
       return {
         ...gen, form, doc, pages, items, generate, print, pageCount,
-        digitCount, traceTip,
+        digitCount, traceTip, tailMax,
         numFonts: Z.NUM_FONTS.map((f) => ({ v: f.key, label: f.name })), guideOptions: Z.GUIDE_OPTIONS,
         colOptions: Z.COLS_OPTIONS,
         // 数字是矢量字形，这套表原样搬过来即可
@@ -90,6 +94,11 @@
 
               <z-field label="每行格数" tip="12 格常规（15mm）/ 13 格密排（14.46mm，左右页边距收窄到 10mm）">
                 <z-seg v-model="form.cols" :options="colOptions"></z-seg>
+              </z-field>
+
+              <z-field label="每行空数"
+                tip="一行最后留几格不印数字，让孩子自己写。上限就是每行格数，格子线照样在，只腾出字的位置">
+                <z-num v-model="form.tail_blank" :min="0" :max="tailMax" suffix="格空着"></z-num>
               </z-field>
 
               <z-field label="每字格数" tip="含最前面那个深色示范格；填满一行就是一行一个数字">

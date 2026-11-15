@@ -7,6 +7,12 @@
   const Z = window.Zu;
   const G = (window.myComponents = window.myComponents || {});
 
+  /* 笔顺条字头行的墨色：两样都写死，不跟「字色」联动。
+     小图只有 3mm 见方，跟着字色调成浅红浅灰，打出来就是一片糊 ——
+     它只是「这一笔先写哪儿」的提示，不需要跟描红同色，干脆压成纯黑最清楚。 */
+  const HEAD_INK = '#262c36'; // 整字：沿用原来那个深墨色
+  const STRIP_INK = '#000';   // 一溜笔顺小图：纯黑，小图靠它才看得清
+
   /* ---------------- 控件 ---------------- */
 
   // 一行设置项：左边标签，右边控件
@@ -116,7 +122,12 @@
   // step 给字号那种要一次跳 10% 的用，默认 1，老调用方不用改
   G.ZNum = {
     name: 'ZNum',
-    props: { modelValue: [Number, String], min: { type: Number, default: 0 }, max: { type: Number, default: 9 }, step: { type: Number, default: 1 }, suffix: { type: String, default: '' } },
+    props: {
+      modelValue: [Number, String], min: { type: Number, default: 0 }, max: { type: Number, default: 9 },
+      step: { type: Number, default: 1 }, suffix: { type: String, default: '' },
+      // 只在别的字段才管用时置灰（如笔顺帖的「每行空数」），值留着不动
+      disabled: Boolean,
+    },
     emits: ['update:modelValue'],
     setup(props, { emit }) {
       const clamp = (v) => Math.min(props.max, Math.max(props.min, v));
@@ -129,13 +140,14 @@
         const step = props.step || 1;
         emit('update:modelValue', clamp((Number.isFinite(n) ? n : props.min) + d * step));
       };
-      const atMin = computed(() => Number(props.modelValue) <= props.min);
-      const atMax = computed(() => Number(props.modelValue) >= props.max);
+      const atMin = computed(() => props.disabled || Number(props.modelValue) <= props.min);
+      const atMax = computed(() => props.disabled || Number(props.modelValue) >= props.max);
       return { set, bump, atMin, atMax };
     },
     template: `
-      <span class="num num-ctl">
-        <input class="input" type="number" :min="min" :max="max" :step="step" :value="modelValue" @change="set" @input="set" />
+      <span class="num num-ctl" :class="{ off: disabled }">
+        <input class="input" type="number" :min="min" :max="max" :step="step" :value="modelValue"
+          :disabled="disabled" @change="set" @input="set" />
         <span class="num-step">
           <button type="button" title="增加" aria-label="增加" :disabled="atMax" @click="bump(1)">+</button>
           <button type="button" title="减少" aria-label="减少" :disabled="atMin" @click="bump(-1)">−</button>
@@ -662,11 +674,15 @@
   /* 笔顺条的字头行：整字 + 拼音 + 一溜笔顺小图，横着铺满一整行。
      它跨整行（grid-column: 1 / -1），所以不画格线 —— 格线交给它下面那些描红格。
      笔顺小图就是 ZGlyph 的 stroke 路子按 upTo 逐笔叠出来的：
-     一个字十画就排十个小图，一个图一笔，看图就能跟着写。 */
+     一个字十画就排十个小图，一个图一笔，看图就能跟着写。
+
+     这一行的墨色写死不跟「字色」走：小图本来就只有 3mm 见方，
+     再跟着调成浅红浅灰，打出来是一片糊 —— 它只是提示「这一笔先写哪儿」，
+     不需要跟描红的字同色。 */
   G.ZCellHead = {
     name: 'ZCellHead',
     props: {
-      cell: { type: Object, required: true }, ink: String, fontCss: String,
+      cell: { type: Object, required: true }, fontCss: String,
       mode: { type: String, default: 'text' },
       barH: { type: Number, default: 11 },
     },
@@ -689,7 +705,7 @@
         Z.strokeRev.n;
         return !Z.strokesOf(props.cell.ch).length;
       });
-      return { n, side: head, head, missing, noStrokes };
+      return { n, side: head, head, missing, noStrokes, HEAD_INK, STRIP_INK };
     },
     template: `
       <div class="cell-cn headbar" :style="{ height: barH + 'mm' }">
@@ -697,7 +713,7 @@
           <!-- 字体里缺这个字就留个空，不然会掉到宋体、还把窄行顶高 -->
           <span v-if="missing" class="hb-ch hb-ch-none" :style="{ width: head + 'mm', height: head + 'mm' }">{{ cell.ch }}</span>
           <span v-else class="hb-ch" :style="{ width: head + 'mm', height: head + 'mm' }">
-            <z-glyph :ch="cell.ch" ink="#262c36" :mode="mode" :font-css="fontCss" :trace="'solid'" head />
+            <z-glyph :ch="cell.ch" :ink="HEAD_INK" :mode="mode" :font-css="fontCss" :trace="'solid'" head />
           </span>
           <span v-if="cell.py" class="hb-py">{{ cell.py }}</span>
         </div>
@@ -706,7 +722,7 @@
           <span v-for="i in n" :key="i" class="hb-stroke" :style="{ width: side + 'mm', height: side + 'mm' }">
             <svg class="hb-blank" v-if="missing || noStrokes" viewBox="0 0 1024 1024"
               xmlns="http://www.w3.org/2000/svg"></svg>
-            <z-glyph v-else :ch="cell.ch" :up-to="i" mode="stroke" :ink="ink" :pad="0" />
+            <z-glyph v-else :ch="cell.ch" :up-to="i" mode="stroke" :ink="STRIP_INK" :pad="0" />
           </span>
         </div>
       </div>`,
@@ -912,7 +928,8 @@
           <div v-if="doc.kind === 'cn'" class="grid-cn" :class="'guide-' + (doc.guide || 'tian')"
             :style="[gridStyle, { '--cell-line': doc.line }]">
             <template v-for="(c, i) in cells" :key="i">
-              <z-cell-head v-if="c.kind === 'headbar'" :cell="c" :ink="doc.ink" :mode="doc.render || 'text'"
+              <!-- 字头行的墨色由组件自己定（见 HEAD_INK），不传 doc.ink -->
+              <z-cell-head v-if="c.kind === 'headbar'" :cell="c" :mode="doc.render || 'text'"
                 :font-css="fontCss" :bar-h="doc.barH || doc.pyH || 7.4"></z-cell-head>
               <z-cell-cn v-else :cell="c" :pinyin="doc.pinyin"
                 :guide="doc.guide || 'tian'" :ink="doc.ink" :mode="doc.render || 'text'"

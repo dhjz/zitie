@@ -15,6 +15,7 @@
     guide: 'tian',      // 见 Z.GUIDE_OPTIONS
     trace: 1,           // 见 Z.TRACE_OPTIONS
     cols: 12,           // 每行格数：12 常规 / 13 密排，见 Z.COLS_OPTIONS
+    tail_blank: 0,      // 每行末尾留几格空着，学生自己写（最多就是每行格数）
     fill_row: 1,        // 每个字几行描字格
     blank_row: 1,       // 每个字几行空格
     row_pattern: '',    // 间隔描字：一行一个记号（描/空），填了就不看上面两个
@@ -55,6 +56,11 @@
       const footOptions = Z.FOOT_OPTIONS;
       const pyStyles = Z.PY_STYLES;
       const colOptions = Z.COLS_OPTIONS;
+      // 「每行空数」的上限就是每行格数；格数换了（12↔13）顺手把越界的收回来
+      const tailMax = Vue.computed(() => Z.colsOf(form.cols));
+      // 笔顺帖一格里是一笔，把行尾擦空就等于漏笔 —— 这一档不参与留空，按钮也灰着
+      const tailOff = Vue.computed(() => Number(form.font_type) === 2);
+      Vue.watch(tailMax, (n) => { if (Number(form.tail_blank) > n) form.tail_blank = n; }, { immediate: true });
 
       // 逐字注音：内容里出现过的字列出来，想改哪个改哪个。
       // 只存改过的（form.pinyin_fix），空着的还是走 pinyin-pro。
@@ -114,7 +120,7 @@
 
       return {
         ...gen, form, doc, pages, items, generate, print, pageCount,
-        fontOptions, guideOptions, traceOptions, footOptions, traceTip, pyStyles, colOptions,
+        fontOptions, guideOptions, traceOptions, footOptions, traceTip, pyStyles, colOptions, tailMax, tailOff,
         charCount, dropped, strokeDisabled, isStrip,
         editOpen, fixList, fixedCount, pyOf, setPy, resetPy,
         borderColors: Z.BORDER_COLORS, inkColors: Z.INK_COLORS,
@@ -144,6 +150,11 @@
 
               <z-field label="每行格数" tip="12 格是常规密度（格子 15mm）；13 格密排，左右页边距会收窄到 10mm，格子仍是 14.46mm">
                 <z-seg v-model="form.cols" :options="colOptions"></z-seg>
+              </z-field>
+
+              <z-field label="每行空数"
+                :tip="tailOff ? '笔顺帖一格里是一笔，行尾擦空就漏了笔，所以这一项只在「描字」「笔顺条」下管用' : '一行最后留几格不印字，让孩子自己写。上限就是每行格数，格子线照样在，只腾出字的位置'">
+                <z-num v-model="form.tail_blank" :min="0" :max="tailMax" :disabled="tailOff" suffix="格空着"></z-num>
               </z-field>
 
               <z-field label="格型">
