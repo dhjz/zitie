@@ -221,7 +221,7 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.9; letter-sp
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 10px 18px; border-radius: 12px; font-weight: 600; font-size: 14px;
+  padding: 8px 18px; border-radius: 12px; font-weight: 600; font-size: 14px;
   background: var(--surface-2); border: 1px solid var(--line-soft); color: var(--text);
   transition: transform .14s, box-shadow .18s, background .18s;
 }
@@ -278,7 +278,7 @@ textarea.pen-input {
 /* ---------------- 首页 ---------------- */
 .hero {
   position: relative; overflow: hidden; border-radius: var(--r-xl);
-  padding: 46px 40px; margin-bottom: 22px;
+  padding: 26px 30px; margin-bottom: 22px;
   background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--accent) 16%, var(--surface)) 0%, var(--surface) 55%);
   border: 1px solid var(--line-soft); box-shadow: var(--shadow);
 }
@@ -292,9 +292,9 @@ textarea.pen-input {
 .hero-slim { padding: 34px 32px; }
 .hero-slim h1 { font-size: 27px; }
 .hero h1 em { font-style: normal; background: linear-gradient(120deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.hero p { margin: 0 0 24px; color: var(--text-2); max-width: 620px; font-size: 15px; }
+.hero p { margin: 0 0 14px; color: var(--text-2); font-size: 14px; }
 .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-.hero-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 22px; }
+.hero-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 22px;display: none; }
 .hero-tags span { font-size: 12px; color: var(--text-3); background: var(--surface-2); border: 1px solid var(--line-soft); padding: 4px 10px; border-radius: 999px; }
 
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
@@ -314,12 +314,12 @@ textarea.pen-input {
 .tile p { margin: 0; font-size: 12.5px; color: var(--text-3); }
 
 /* ---- 首页功能卡：比说明页的卡片大一档，顶上带一张缩略图 ---- */
-.cards.feat { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
+.cards.feat { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
 .tile.feat {
   padding: 0; overflow: hidden; display: flex; flex-direction: column;
 }
 .tile.feat:hover { transform: translateY(-4px); border-color: color-mix(in srgb, var(--accent) 34%, var(--line)); }
-.tile.feat .tile-body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 6px; }
+.tile.feat .tile-body { padding: 12px 18px 10px; display: flex; flex-direction: column; gap: 6px; }
 .tile.feat .tile-hd { display: flex; align-items: center; gap: 10px; }
 .tile.feat .tile-ico {
   width: 32px; height: 32px; border-radius: 11px; margin: 0; flex: 0 0 auto; font-size: 16px;
@@ -332,7 +332,7 @@ textarea.pen-input {
 /* ---- 卡片上的缩略图：一张按真实比例画的迷你字帖 ----
    纸画到画布外面一点，底部被裁掉 —— 暗示「底下还有一整页」。 */
 .thumb {
-  height: 200px; overflow: hidden; padding: 0; margin: 0 auto;
+  height: 170px; overflow: hidden; padding: 0; margin: 0 auto;
   /* background: radial-gradient(120% 130% at 18% 0%, color-mix(in srgb, var(--accent) 12%, var(--surface-2)) 0%, var(--surface-2) 62%); */
   border-bottom: 1px solid var(--line-soft);
 }
