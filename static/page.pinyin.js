@@ -11,6 +11,7 @@
     content: '春眠不觉晓', // 汉字注音的正文
     custom: 'b p m f',    // 自选音节，空格或逗号隔开
     cols: 8,            // 每行格数：8 常规 / 10 密排，见 Z.PY_COLS_OPTIONS
+    tail_blank: 0,      // 每行末尾留几格空着，学生自己写（最多就是每行格数）
     repeat_times: 6,
     blank_row: 1,
     foot: 0,
@@ -56,10 +57,13 @@
       // 拼音也是字体整字，只有描边那几档能用
       const traceOptions = Z.EN_TRACE_OPTIONS;
       const colOptions = Z.PY_COLS_OPTIONS;
+      // 「每行空数」的上限就是每行格数；格数换档时把越界的收回来
+      const tailMax = Vue.computed(() => Z.pyColsOf(form.cols));
+      Vue.watch(tailMax, (n) => { if (Number(form.tail_blank) > n) form.tail_blank = n; }, { immediate: true });
 
       return { ...gen, form, doc, pages, items, generate, print,
         typeOptions, charCount, itemCount, dropped, presets, usePreset,
-        traceOptions, colOptions, fonts: Z.PY_FONTS, footOptions: Z.FOOT_OPTIONS,
+        traceOptions, colOptions, tailMax, fonts: Z.PY_FONTS, footOptions: Z.FOOT_OPTIONS,
         borderColors: Z.BORDER_COLORS, inkColors: Z.INK_COLORS };
     },
     template: `
@@ -93,6 +97,11 @@
 
               <z-field label="每行格数" tip="8 格一个音节占 22mm，10 格占 17.6mm；长音节（zhuang、ying）会自动缩一点塞进去">
                 <z-seg v-model="form.cols" :options="colOptions"></z-seg>
+              </z-field>
+
+              <z-field label="每行空数"
+                tip="一行最后留几格不印字，让孩子自己写。上限就是每行格数，格子线照样在，只腾出字的位置">
+                <z-num v-model="form.tail_blank" :min="0" :max="tailMax" suffix="格空着"></z-num>
               </z-field>
 
               <z-field label="重复" tip="同一行铺几遍，铺满自动换行">
