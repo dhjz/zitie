@@ -116,3 +116,6 @@ python3 scripts/pack-lite.py --tag v1.0-lite   # 产物 dist/zitie-lite-v1.0-lit
 | 拼音字帖 | 数字字帖 |
 |---|---|
 | ![拼音字帖](https://gcore.jsdelivr.net/gh/dhjz/zitie@main/appimg/3.jpg) | ![数字字帖](https://gcore.jsdelivr.net/gh/dhjz/zitie@main/appimg/4.jpg) |
+
+- 项目地址: [https://github.com/dhjz/zitie]( https://github.com/dhjz/zitie)  
+- 预览地址: [https://dhjz.github.io/zitie/](https://dhjz.github.io/zitie/)
