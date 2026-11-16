@@ -111,8 +111,8 @@ python3 scripts/pack-lite.py --tag v1.0-lite   # 产物 dist/zitie-lite-v1.0-lit
 
 | 首页 | 汉字字帖 |
 |---|---|
-| ![首页](appimg/1.jpg) | ![汉字字帖](appimg/2.jpg) |
+| ![首页](https://gcore.jsdelivr.net/gh/dhjz/zitie@main/appimg/1.jpg) | ![汉字字帖](https://gcore.jsdelivr.net/gh/dhjz/zitie@main/appimg/2.jpg) |
 
 | 拼音字帖 | 数字字帖 |
 |---|---|
-| ![拼音字帖](appimg/3.jpg) | ![数字字帖](appimg/4.jpg) |
+| ![拼音字帖](https://gcore.jsdelivr.net/gh/dhjz/zitie@main/appimg/3.jpg) | ![数字字帖](https://gcore.jsdelivr.net/gh/dhjz/zitie@main/appimg/4.jpg) |
