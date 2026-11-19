@@ -660,6 +660,8 @@
     { key: 'xingkai', name: '行楷', css: "'行楷', 'STXingkai', '华文行楷', '楷体', serif", url: `${ZH_DIR}/xingkai.woff2` },
     { key: 'pangzhonghua', name: '庞中华', css: "'庞中华', 'PangZhonghua', '楷体', serif", url: `${ZH_DIR}/pangzhonghua.woff2` },
     { key: 'kaishu', name: '硬笔楷书', css: "'硬笔楷书', 'QXyingbikai', '楷体', serif", url: `${ZH_DIR}/kaishu.woff2` },
+    { key: 'tianyingzhangxingshu', name: '田英章行书', css: "'田英章行书', 'TianYingZhangXingShu', '楷体', serif", url: `${ZH_DIR}/tianyingzhangxingshu.woff2` },
+    { key: 'tianyingzhangkaishu', name: '田英章楷书', css: "'田英章楷书', 'TianYingZhangKaiShu', '楷体', serif", url: `${ZH_DIR}/tianyingzhangkaishu.woff2` },
   ];
   Z.EN_FONTS = [
     { key: 'shouxieti', name: '手写体', css: "'手写体', 'ShouXieTi', cursive", url: 'static/fonts/en/shouxieti.woff2', eager: true },
