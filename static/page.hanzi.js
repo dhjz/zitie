@@ -45,13 +45,13 @@
 
       const fontOptions = Z.ZH_FONTS;
       const guideOptions = Z.GUIDE_OPTIONS;
-      // 描字走字体整字，能做的只有「SVG stroke 描边」那一类；
+      // 描字、笔顺条走字体整字，能做的只有「SVG stroke 描边」那一类；
       // 填充虚线、擦除画要笔心线，字体里没有这信息，只能置灰
       const traceOptions = Vue.computed(() =>
         Z.TRACE_OPTIONS.map((o) => {
-          const fontPath = Number(form.font_type) === 1;   // 描字 = 字体整字，笔顺两种都走轮廓
+          const fontPath = Number(form.font_type) !== 2;   // 描字、笔顺条 = 字体整字；笔顺走轮廓
           const off = fontPath && Z.traceVectorOnly(Z.traceOf(o.v));
-          return off ? { ...o, disabled: true, tip: '这一档要把笔心线从字里剃出来，字体整字没有笔心线；切到「笔顺」「笔顺条」才管用' } : o;
+          return off ? { ...o, disabled: true, tip: '这一档要把笔心线从字里剃出来，字体整字没有笔心线；切到「笔顺」才管用' } : o;
         }));
       const footOptions = Z.FOOT_OPTIONS;
       const pyStyles = Z.PY_STYLES;
@@ -97,7 +97,7 @@
         generate();
       };
       const traceTip = Vue.computed(() => {
-        if (Number(form.font_type) !== 1) return '笔顺、笔顺条都是逐笔的轮廓 + 笔心线，十一档全部管用';
+        if (Number(form.font_type) === 2) return '笔顺是逐笔的轮廓 + 笔心线，十一档全部管用';
         if (Z.traceVectorOnly(Z.traceOf(form.trace))) return '这一档要笔心线，字体整字做不出来，已经退成细虚线';
         if (form.trace === 4) return '圆点：一串点沿笔心线摆出来，点的粗细跟着笔画肥瘦走';
         return '';
@@ -111,17 +111,26 @@
       // 笔顺条把拼音搬进字头行，格子里的拼音行就不存在了
       const isStrip = Vue.computed(() => Number(form.font_type) === 3);
 
-      // 笔顺模式画的是笔画轮廓数据，跟选哪款字体无关；换了非楷体就退回描字，
-      // 免得用户以为字体没生效
+      // 笔顺每格一笔，用的是楷体那套逐笔轮廓，跟字体无关；
+      // 笔顺条只是字头借用同一套轮廓做小图，下面描红仍走选中字体，
+      // 所以这里只挡纯「笔顺」，不挡「笔顺条」。
       const strokeDisabled = Vue.computed(() => form.font_key !== 'kaiti');
       // 存档里可能是「非楷体 + 笔顺」，一进来就得回落到描字，
       // 所以 immediate —— 光靠变化触发的话初值不生效，那档选项还灰着却被选中
-      Vue.watch(strokeDisabled, (v) => { if (v && Number(form.font_type) !== 1) form.font_type = 1; }, { immediate: true });
+      Vue.watch(strokeDisabled, (v) => { if (v && Number(form.font_type) === 2) form.font_type = 1; }, { immediate: true });
+      const stripStrokeFont = Vue.computed(() => Number(form.font_type) === 3 && form.font_key === 'kaiti');
+      // 小图始终展示楷体笔顺；字头的大字在楷体下和小图同源，换字体后就各走各的。
+      const stripFontTip = Vue.computed(() => {
+        if (Number(form.font_type) !== 3) return '';
+        return stripStrokeFont.value
+          ? '当前是楷体：字头大字和上方笔顺小图同源；换字体后，字头大字会跟着变，笔顺小图仍用楷体笔顺数据'
+          : '字头大字用当前字体，上方小图仍用楷体笔顺数据';
+      });
 
       return {
         ...gen, form, doc, pages, items, generate, print, pageCount,
         fontOptions, guideOptions, traceOptions, footOptions, traceTip, pyStyles, colOptions, tailMax, tailOff,
-        charCount, dropped, strokeDisabled, isStrip,
+        charCount, dropped, strokeDisabled, isStrip, stripStrokeFont, stripFontTip,
         editOpen, fixList, fixedCount, pyOf, setPy, resetPy,
         borderColors: Z.BORDER_COLORS, inkColors: Z.INK_COLORS,
       };
@@ -138,13 +147,13 @@
                 <div class="hint" v-if="dropped">有 {{ dropped }} 个非汉字字符不会出现在字帖里</div>
               </z-field>
 
-              <z-field label="格式" tip="描字按上面选的字体整字渲染；笔顺是逐笔拆开的笔画轮廓，跟字体无关">
+              <z-field label="格式" tip="描字和笔顺条的大字按上面选的字体整字渲染；笔顺是逐笔拆开的笔画轮廓，跟字体无关">
                 <z-seg v-model="form.font_type" :options="[
                   { v: 1, label: '描字' },
                   { v: 2, label: '笔顺', disabled: strokeDisabled,
                     tip: strokeDisabled ? '笔顺是逐笔拆开的笔画轮廓，只能用楷体的笔画数据；描字才跟着字体走' : '逐笔演示笔顺' },
-                  { v: 3, label: '笔顺条', disabled: strokeDisabled,
-                    tip: strokeDisabled ? '笔顺条要逐笔的笔画数据，只能用楷体' : '每字先一行「字 + 拼音 + 笔顺小图」，下面整行描红' }
+                  { v: 3, label: '笔顺条',
+                    tip: '每字先一行「字 + 拼音 + 笔顺小图」，下面整行描红；换字体后大字跟着变，小图仍用楷体笔顺数据' }
                 ]"></z-seg>
               </z-field>
 
@@ -166,7 +175,7 @@
                 <div class="hint" v-if="traceTip">{{ traceTip }}</div>
               </z-field>
 
-              <z-field label="字体">
+              <z-field label="字体" :tip="stripFontTip">
                 <z-fonts v-model="form.font_key" :fonts="fontOptions"></z-fonts>
               </z-field>
 
