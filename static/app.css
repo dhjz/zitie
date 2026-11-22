@@ -329,6 +329,17 @@ textarea.pen-input {
 .tile-go { margin-left: auto; color: var(--text-3); font-size: 15px; transition: transform .2s, color .2s; }
 .tile.feat:hover .tile-go { color: var(--accent); transform: translateX(3px); }
 
+/* 首页底部的项目链接：只出现在首页，打印时随 no-print 一起隐藏 */
+.home-footer {
+  margin: 26px 0 10px; padding-top: 14px;
+  border-top: 1px solid var(--line-soft); text-align: center;
+}
+.home-footer a {
+  font-size: 12px; color: var(--text-3);
+  transition: color .18s;
+}
+.home-footer a:hover { color: var(--accent); }
+
 /* ---- 卡片上的缩略图：一张按真实比例画的迷你字帖 ----
    纸画到画布外面一点，底部被裁掉 —— 暗示「底下还有一整页」。 */
 .thumb {
