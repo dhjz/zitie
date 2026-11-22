@@ -50,6 +50,10 @@
             </div>
           </button>
         </div>
+
+        <footer class="home-footer no-print">
+          <a href="https://github.com/dhjz/zitie" target="_blank" rel="noopener noreferrer">https://github.com/dhjz/zitie</a>
+        </footer>
       </div>`,
   };
 })();
