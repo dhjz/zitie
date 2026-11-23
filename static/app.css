@@ -331,7 +331,7 @@ textarea.pen-input {
 
 /* 首页底部的项目链接：只出现在首页，打印时随 no-print 一起隐藏 */
 .home-footer {
-  margin: 26px 0 10px; padding-top: 14px;
+  margin: 20px 0 8px; padding: 12px 12px 0;
   border-top: 1px solid var(--line-soft); text-align: center;
 }
 .home-footer a {
@@ -339,6 +339,14 @@ textarea.pen-input {
   transition: color .18s;
 }
 .home-footer a:hover { color: var(--accent); }
+.home-footer-tip {
+  margin: 6px auto 0; max-width: 320px;
+  font-size: 12px; line-height: 1.6; color: var(--text-3);
+}
+/* 首页没有功能页那根固定操作栏（.mbar），用不上 wrap 给它留的底部空间 */
+@media screen and (max-width: 760px) {
+  .wrap:has(.home-footer) { padding-bottom: 20px; }
+}
 
 /* ---- 卡片上的缩略图：一张按真实比例画的迷你字帖 ----
    纸画到画布外面一点，底部被裁掉 —— 暗示「底下还有一整页」。 */

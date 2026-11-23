@@ -53,6 +53,7 @@
 
         <footer class="home-footer no-print">
           <a href="https://github.com/dhjz/zitie" target="_blank" rel="noopener noreferrer">https://github.com/dhjz/zitie</a>
+          <p class="home-footer-tip">手机端建议使用系统厂商自带浏览器，可唤起系统打印服务连接打印机</p>
         </footer>
       </div>`,
   };
